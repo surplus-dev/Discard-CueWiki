@@ -8,6 +8,8 @@
     $lang_file["en-US"] = [];
     
     $lang_file["en-US"]["edit"] = "Edit";
+    $lang_file["en-US"]["main"] = "Main";
+    $lang_file["en-US"]["recent_changes"] = "Recent changes";
     $lang_file["en-US"]["history"] = "History";
     $lang_file["en-US"]["return"] = "Return";
     $lang_file["en-US"]["version"] = "Version";
@@ -68,7 +70,7 @@
                 </head>
                 <body>
                     <div id=\"top\">
-                        <a href=\"".url_fix()."\">Main</a>
+                        <a href=\"".url_fix()."\">".load_lang("main")."</a> <a href=\"?action=r_change\">".load_lang("recent_changes")."</a>
                     </div>
                     <br>
                     <br>
@@ -186,6 +188,22 @@
             } else {
                 echo redirect();
             }
+
+            break;
+        case "r_change":
+            $html_data = '';
+
+            $select = $conn -> prepare('select num, title, date, who from history order by date desc');
+            $select -> execute();
+            $data = $select -> fetchAll();
+            foreach($data as &$in_data) {
+                $html_data = $html_data."
+                    ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]."
+                    <br>
+                ";
+            }
+
+            echo load_skin("", $html_data, [], ["title" => load_lang("recent_changes")]);
 
             break;
         default:
