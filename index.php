@@ -14,8 +14,14 @@
     $lang_file["en-US"]["return"] = "Return";
     $lang_file["en-US"]["version"] = "Version";
 
+    $inter_version = "v0.0.01";
+    $version = "0001";
+
     function load_render($title, $data) {
-    
+        $data = preg_replace("/'''((?:(?!''').)+)'''/", "<b>$1</b>", $data);
+        $data = preg_replace("/''((?:(?!'').)+)''/", "<i>$1</i>", $data);
+
+        return $data;
     }
     
     function redirect($url = '') {
@@ -103,9 +109,26 @@
     
     $conn = new PDO('sqlite:data.db');
     session_start();
-    
-    $create = $conn -> prepare('create table if not exists history(num text, title text, data text, date text, who text)');
+
+    $create = $conn -> prepare('create table if not exists setting(title text, data text)');
     $create -> execute();
+    
+    $select = $conn -> prepare('select data from setting where title = "version"');
+    $select -> execute();
+    $data = $select -> fetchAll();
+    if(!$data) {
+        $create = $conn -> prepare('create table if not exists history(num text, title text, data text, date text, who text)');
+        $create -> execute();
+
+        $create = $conn -> prepare('alter table history add why text default ""');
+        $create -> execute();
+
+        $create = $conn -> prepare('alter table history add blind text default ""');
+        $create -> execute();
+
+        $insert = $conn -> prepare('insert into setting (title, data) values ("version", ?)');
+        $insert -> execute(array($version));
+    }
 
     switch($_GET['action']) {
         case "":
@@ -118,7 +141,7 @@
                 $select -> execute(array($_GET['title']));
                 $data = $select -> fetchAll();
                 if($data) {
-                    $get_data = $data[0]["data"];
+                    $get_data = load_render($_GET['title'], $data[0]["data"]);
                 } else {
                     $get_data = "404";
                 }
@@ -140,12 +163,19 @@
                     $select -> execute(array($_GET['title']));
                     $data = $select -> fetchAll();
                     if($data) {
-                        $insert = $conn -> prepare('insert into history (num, title, data, date, who) values (?, ?, ?, ?, ?)');
-                        $insert -> execute(array((string)((int)$data[0]["num"] + 1), $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR']));
+                        $num = (string)((int)$data[0]["num"] + 1);
                     } else {
-                        $insert = $conn -> prepare('insert into history (num, title, data, date, who) values ("1", ?, ?, ?, ?)');
-                        $insert -> execute(array($_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR']));
+                        $num = "1";
                     }
+                    
+                    if(mb_strlen($_POST["why"], 'UTF-8') > 64) {
+                        $why = "";
+                    } else {
+                        $why = $_POST["why"];
+                    }
+
+                    $insert = $conn -> prepare('insert into history (num, title, data, date, who, why, blind) values (?, ?, ?, ?, ?, ?, "")');
+                    $insert -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR'], $why));
 
                     echo redirect("?action=w&title=".$_GET['title']);
                 } else {
@@ -160,7 +190,12 @@
 
                     echo load_skin("", "
                         <form method=\"post\">
-                            <textarea name=\"data\">".$get_data."</textarea>
+                            <textarea style=\"width: 500px; height: 300px;\" name=\"data\">".$get_data."</textarea>
+                            <br>
+                            <br>
+                            <input name=\"why\"></input>
+                            <br>
+                            <br>
                             <button type=\"submit\">".load_lang("save")."</button>
                         </form>
                     ", [[load_lang("return"), "?action=w&title=".$_GET['title']]], ["title" => $_GET['title'], "sub" => load_lang("edit")]);
@@ -174,12 +209,12 @@
             if($_GET['title']) {
                 $html_data = '';
 
-                $select = $conn -> prepare('select num, title, date, who from history where title = ? order by date desc');
+                $select = $conn -> prepare('select num, title, date, who, why from history where title = ? order by date desc');
                 $select -> execute(array($_GET['title']));
                 $data = $select -> fetchAll();
                 foreach($data as &$in_data) {
                     $html_data = $html_data."
-                        ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]."
+                        ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
                         <br>
                     ";
                 }
