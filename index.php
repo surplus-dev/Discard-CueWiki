@@ -3,20 +3,6 @@
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL & ~E_NOTICE);
 
-    $lang_file = [];
-    
-    $lang_file["en-US"] = [];
-    
-    $lang_file["en-US"]["edit"] = "Edit";
-    $lang_file["en-US"]["main"] = "Main";
-    $lang_file["en-US"]["recent_changes"] = "Recent changes";
-    $lang_file["en-US"]["history"] = "History";
-    $lang_file["en-US"]["return"] = "Return";
-    $lang_file["en-US"]["version"] = "Version";
-
-    $inter_version = "v0.0.01";
-    $version = "0001";
-
     function load_render($title, $data) {
         $data = preg_replace("/'''((?:(?!''').)+)'''/", "<b>$1</b>", $data);
         $data = preg_replace("/''((?:(?!'').)+)''/", "<i>$1</i>", $data);
@@ -107,27 +93,46 @@
         return $main_skin;
     }
     
+    $lang_file = [];
+    
+    $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), true);
+
+    $inter_version = "v0.0.02";
+    $version = "0002";
+
     $conn = new PDO('sqlite:data.db');
     session_start();
 
-    $create = $conn -> prepare('create table if not exists setting(title text, data text)');
-    $create -> execute();
+    $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
+    $sql -> execute();
     
-    $select = $conn -> prepare('select data from setting where title = "version"');
-    $select -> execute();
-    $data = $select -> fetchAll();
+    $sql = $conn -> prepare('select data from setting where title = "version"');
+    $sql -> execute();
+    $data = $sql -> fetchAll();
     if(!$data) {
-        $create = $conn -> prepare('create table if not exists history(num text, title text, data text, date text, who text)');
-        $create -> execute();
+        $sql = $conn -> prepare('create table if not exists history(num text, title text, data text, date text, who text)');
+        $sql -> execute();
 
-        $create = $conn -> prepare('alter table history add why text default ""');
-        $create -> execute();
+        $sql = $conn -> prepare('alter table history add why text default ""');
+        $sql -> execute();
 
-        $create = $conn -> prepare('alter table history add blind text default ""');
-        $create -> execute();
+        $sql = $conn -> prepare('alter table history add blind text default ""');
+        $sql -> execute();
 
-        $insert = $conn -> prepare('insert into setting (title, data) values ("version", ?)');
-        $insert -> execute(array($version));
+        $sql = $conn -> prepare('insert into setting (title, data) values ("version", ?)');
+        $sql -> execute(array($version));
+
+        $data = '0001';
+    } else {
+        $data = $data[0]['data'];
+    }
+
+    if((int)$data < 0002) {
+        $sql = $conn -> prepare('alter table history add how text default ""');
+        $sql -> execute();
+
+        $sql = $conn -> prepare('update setting set data = ? Where title = "version"');
+        $sql -> execute(array($version));
     }
 
     switch($_GET['action']) {
@@ -137,9 +142,9 @@
             break;
         case "w":
             if($_GET['title']) {
-                $select = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                $select -> execute(array($_GET['title']));
-                $data = $select -> fetchAll();
+                $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                $sql -> execute(array($_GET['title']));
+                $data = $sql -> fetchAll();
                 if($data) {
                     $get_data = load_render($_GET['title'], $data[0]["data"]);
                 } else {
@@ -159,9 +164,9 @@
         case "edit":
             if($_GET['title']) {
                 if($_SERVER['REQUEST_METHOD'] === 'POST') {
-                    $select = $conn -> prepare('select num from history where title = ? order by date desc limit 1');
-                    $select -> execute(array($_GET['title']));
-                    $data = $select -> fetchAll();
+                    $sql = $conn -> prepare('select num from history where title = ? order by date desc limit 1');
+                    $sql -> execute(array($_GET['title']));
+                    $data = $sql -> fetchAll();
                     if($data) {
                         $num = (string)((int)$data[0]["num"] + 1);
                     } else {
@@ -174,14 +179,14 @@
                         $why = $_POST["why"];
                     }
 
-                    $insert = $conn -> prepare('insert into history (num, title, data, date, who, why, blind) values (?, ?, ?, ?, ?, ?, "")');
-                    $insert -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR'], $why));
+                    $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind) values (?, ?, ?, ?, ?, ?, "")');
+                    $sql -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR'], $why));
 
                     echo redirect("?action=w&title=".$_GET['title']);
                 } else {
-                    $select = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                    $select -> execute(array($_GET['title']));
-                    $data = $select -> fetchAll();
+                    $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                    $sql -> execute(array($_GET['title']));
+                    $data = $sql -> fetchAll();
                     if($data) {
                         $get_data = $data[0]["data"];
                     } else {
@@ -209,9 +214,9 @@
             if($_GET['title']) {
                 $html_data = '';
 
-                $select = $conn -> prepare('select num, title, date, who, why from history where title = ? order by date desc');
-                $select -> execute(array($_GET['title']));
-                $data = $select -> fetchAll();
+                $sql = $conn -> prepare('select num, title, date, who, why from history where title = ? order by date desc');
+                $sql -> execute(array($_GET['title']));
+                $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
                     $html_data = $html_data."
                         ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
@@ -228,9 +233,9 @@
         case "r_change":
             $html_data = '';
 
-            $select = $conn -> prepare('select num, title, date, who from history order by date desc');
-            $select -> execute();
-            $data = $select -> fetchAll();
+            $sql = $conn -> prepare('select num, title, date, who from history order by date desc');
+            $sql -> execute();
+            $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
                 $html_data = $html_data."
                     ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]."
