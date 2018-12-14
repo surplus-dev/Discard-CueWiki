@@ -35,7 +35,7 @@
     function load_skin($head = '', $body = '', $tool = [], $other = []) {
         $tool_html = "";
         foreach($tool as &$tool_data) {
-            $tool_html = $tool_html."<a href=".url_fix($tool_data[1]).">".$tool_data[0]."</a> ";
+            $tool_html = $tool_html."<a href=".$tool_data[1].">".$tool_data[0]."</a> ";
         }
 
         if(!$other["title"]) {
@@ -58,11 +58,14 @@
         $main_skin = "
             <html>
                 <head>
+                    <title>".$title."</title>
                     ".$head."
                 </head>
                 <body>
                     <div id=\"top\">
-                        <a href=\"".url_fix()."\">".load_lang("main")."</a> <a href=\"?action=r_change\">".load_lang("recent_changes")."</a>
+                        <a href=\"".url_fix()."\">".load_lang("main")."</a>
+                        <a href=\"?action=r_change\">".load_lang("recent_changes")."</a>
+                        <a href=\"?action=o_tool\">".load_lang("other_tool")."</a>
                     </div>
                     <br>
                     <br>
@@ -84,7 +87,7 @@
                     <br>
                     <br>
                     <div id=\"bottom\">
-                        openNAMU_Lite
+                        <a href=\"https://github.com/Make-openNAMU/PHP-openNAMU_Lite\">openNAMU_Lite</a>
                     </div>
                 </body>
             </html>
@@ -153,8 +156,8 @@
                 
                 echo load_skin("", $get_data,
                     [
-                        [load_lang('edit'), '?action=edit&title='.$_GET['title']],
-                        [load_lang("history"), '?action=history&title='.$_GET['title']]
+                        [load_lang('edit'), '?action=edit&title='.urlencode($_GET['title'])],
+                        [load_lang("history"), '?action=history&title='.urlencode($_GET['title'])]
                     ], ["title" => $_GET['title']]);
             } else {
                 echo redirect();
@@ -214,7 +217,7 @@
             if($_GET['title']) {
                 $html_data = '';
 
-                $sql = $conn -> prepare('select num, title, date, who, why from history where title = ? order by date desc');
+                $sql = $conn -> prepare('select num, date, who, why from history where title = ? order by date desc');
                 $sql -> execute(array($_GET['title']));
                 $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
@@ -233,17 +236,32 @@
         case "r_change":
             $html_data = '';
 
-            $sql = $conn -> prepare('select num, title, date, who from history order by date desc');
+            $sql = $conn -> prepare('select num, title, date, who, why from history order by date desc limit 50');
             $sql -> execute();
             $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
                 $html_data = $html_data."
-                    ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]."
+                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
                     <br>
                 ";
             }
 
             echo load_skin("", $html_data, [], ["title" => load_lang("recent_changes")]);
+
+            break;
+        case "o_tool":
+            $html_data = "
+                ".load_lang("users_tool")."
+                <br>
+                Test
+                <br>
+                <br>
+                ".load_lang("admins_tool")."
+                <br>
+                <a href=\"?action=setting\">".load_lang("setting")."</a>
+            ";
+
+            echo load_skin("", $html_data, [], ["title" => load_lang("other_tool")]);
 
             break;
         default:
