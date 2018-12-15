@@ -3,9 +3,80 @@
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL & ~E_NOTICE);
 
+    $setting = json_decode(file_get_contents('./setting.json'), true);
+
+    function xss_protect($data) {
+        $data = preg_replace("/</", "&lt;", $data);
+        $data = preg_replace("/>/", "&gt;", $data);
+
+        return $data;
+    }
+
     function load_render($title, $data) {
-        $data = preg_replace("/'''((?:(?!''').)+)'''/", "<b>$1</b>", $data);
-        $data = preg_replace("/''((?:(?!'').)+)''/", "<i>$1</i>", $data);
+        $data = preg_replace("/\r\n/", "\n", $data);
+        $data = "\n".$data."\n";
+
+        $data = xss_protect($data);
+
+        if($setting['grammar'] === "namumark") {
+            $data = preg_replace("/'''((?:(?!''').)+)'''/", "<b>$1</b>", $data);
+            $data = preg_replace("/''((?:(?!'').)+)''/", "<i>$1</i>", $data);
+        } else {
+            $data = preg_replace("/\*\*((?:(?!\*\*).)+)\*\*/", "<b>$1</b>", $data);
+            $data = preg_replace("/\*((?:(?!\*).)+)\*/", "<i>$1</i>", $data);
+
+            $data = preg_replace("/__((?:(?!__).)+)__/", "<b>$1</b>", $data);
+            $data = preg_replace("/_((?:(?!_).)+)_/", "<i>$1</i>", $data);
+
+            $data = preg_replace("/~~((?:(?!~~).)+)~~/", "<s>$1</s>", $data);
+
+            $data = preg_replace("/`((?:(?!`).)+)`/", "<pre>$1</pre>", $data);
+
+            $data = preg_replace_callback("/\n(#{1,6}) ?([^\n]+)/",
+                function($matches) {
+                    return "<h".mb_strlen($matches[1], 'UTF-8').">".$matches[2]."</h".mb_strlen($matches[1], 'UTF-8').">";
+                }
+            , $data);
+
+            $data = preg_replace_callback("/\[([^\]]*)\]\(([^)]*)\)/",
+                function($matches) {
+                    if($matches[1] === "" && $matches[2] === "") {
+                        return "";
+                    } else {
+                        if($matches[2] === "") {
+                            return "<a href=\"?action=w&title=".urlencode($matches[1])."\">".$matches[1]."</a>";
+                        } else {
+                            if($matches[1] === "") {
+                                $out_link = $matches[2];
+                            } else {
+                                $out_link = $matches[1];
+                            }
+
+                            if(preg_match("/^https?:\/\//i", $matches[2])) {
+                                return "<a style=\"color: green;\" href=\"".$matches[2]."\">".$out_link."</a>";
+                            } else {
+                                return "<a href=\"?action=w&title=".urlencode($matches[2])."\">".$out_link."</a>";
+                            }
+                        }
+                    }
+                }
+            , $data);
+
+            $data = preg_replace_callback("/((?:&gt;([^\n]+)\n)+)/",
+                function($matches) {
+                    $return = preg_replace("/\n&gt;/", "\n", $matches[1]);
+                    $return = preg_replace("/^&gt;/", "", $return);
+
+                    return "<blockquote>".preg_replace("/\n/", "<br>", $return)."</blockquote>";
+                }
+            , $data);
+
+            $data = preg_replace_callback("/(\n{2,})/",
+                function($matches) {
+                    return preg_replace("/\n/", "<br>", $matches[1]);
+                }
+            , $data);
+        }
 
         return $data;
     }
@@ -28,7 +99,7 @@
         if($lang_file["en-US"][$data]) {
             return $lang_file["en-US"][$data];
         } else {
-            return $data.' (Missing)';
+            return $data.' (M)';
         }
     }
     
@@ -258,7 +329,7 @@
                 <br>
                 ".load_lang("admins_tool")."
                 <br>
-                <a href=\"?action=setting\">".load_lang("setting")."</a>
+                Test
             ";
 
             echo load_skin("", $html_data, [], ["title" => load_lang("other_tool")]);
