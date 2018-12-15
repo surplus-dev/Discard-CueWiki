@@ -1,4 +1,5 @@
 {
     "grammar" : "markdown",
-    "encryption" : "sha256"
+    "encryption" : "sha256",
+    "skin" : "yousoro"
 }
