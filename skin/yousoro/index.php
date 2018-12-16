@@ -13,19 +13,24 @@
             $other["sub"] = "";
         }
 
-        $title = "";
+        $title1 = "";
+        $title2 = "";
         if($other["title"] !== "") {
-            $title = $other["title"];
+            $title1 = $other["title"];
+            $title2 = "<span id=\"main_title\">".$other["title"]."</span>";
 
             if($other["sub"] !== "") {
-                $title = $title." (".$other["sub"].")";
+                $title1 = $title1." (".$other["sub"].")";
+                $title2 = $title2." (".$other["sub"].")";
             }
         }
         
         $main_skin = "
             <html>
                 <head>
-                    <title>".$title."</title>
+                    <title>".$title1."</title>
+                    <link rel=\"stylesheet\" href=\"".file_fix("/skin/yousoro/css/main.css")."\">
+                    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
                     ".$head."
                 </head>
                 <body>
@@ -34,11 +39,9 @@
                         <a href=\"?action=r_change\">".load_lang("recent_changes")."</a>
                         <a href=\"?action=o_tool\">".load_lang("other_tool")."</a>
                     </div>
-                    <br>
-                    <br>
                     <div id=\"middle\">
                         <div id=\"title\">
-                            ".$title."
+                            ".$title2."
                         </div>
                         <br>
                         <br>
@@ -50,11 +53,11 @@
                         <div id=\"data\">
                             ".$body."
                         </div>
-                    </div>
-                    <br>
-                    <br>
-                    <div id=\"bottom\">
-                        <a href=\"https://github.com/Make-openNAMU/PHP-openNAMU_Lite\">openNAMU_Lite</a>
+                        <br>
+                        <br>
+                        <div id=\"bottom\">
+                            <a href=\"https://github.com/Make-openNAMU/PHP-openNAMU_Lite\">openNAMU_Lite</a>
+                        </div>
                     </div>
                 </body>
             </html>

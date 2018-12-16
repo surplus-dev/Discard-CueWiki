@@ -1,0 +1,18 @@
+body {
+    margin: 0;
+}
+
+#top {
+    width: 100%;
+    padding: 20px;
+    border-bottom: 1px solid #aaa;
+    background: antiquewhite;
+}
+
+#middle {
+    padding: 20px;
+}
+
+#main_title {
+    font-size: 24px;
+}

@@ -8,5 +8,7 @@
     "other_tool" : "Other tool",
     "admins_tool" : "Admin's tool",
     "users_tool" : "User's tool",
-    "save" : "Save"
+    "save" : "Save",
+    "raw" : "Raw",
+    "old" : "Old"
 }

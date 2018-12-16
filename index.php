@@ -158,21 +158,45 @@
 
             break;
         case "w":
+        case "raw":
             if($_GET['title']) {
-                $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                $sql -> execute(array($_GET['title']));
+                if($_GET['num']) {
+                    $sql = $conn -> prepare('select data from history where title = ? and num = ? order by date desc limit 1');
+                    $sql -> execute(array($_GET['title'], $_GET['num']));
+                    $title = ["title" => $_GET['title'], "sub" => $_GET['num']];
+                    $menu = [
+                        [load_lang("return"), '?action=history&title='.urlencode($_GET['title'])]
+                    ];
+                } else {
+                    $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                    $sql -> execute(array($_GET['title']));
+                    $title = ["title" => $_GET['title']];
+                    $menu = [
+                        [load_lang('edit'), '?action=edit&title='.urlencode($_GET['title'])],
+                        [load_lang('raw'), '?action=raw&title='.urlencode($_GET['title'])],
+                        [load_lang("history"), '?action=history&title='.urlencode($_GET['title'])]
+                    ];
+                }
                 $data = $sql -> fetchAll();
                 if($data) {
-                    $get_data = load_render($_GET['title'], $data[0]["data"]);
+                    if($_GET['action'] === "w") {
+                        $get_data = load_render($_GET['title'], $data[0]["data"]);
+                    } else {
+                        $get_data = "<pre>".$data[0]["data"]."</pre>";
+                        if($title["sub"]) {
+                            $title = ["title" => $_GET['title'], "sub" => $_GET['num']." | ".load_lang("raw")];
+                        } else {
+                            $title = ["title" => $_GET['title'], "sub" => load_lang("raw")];
+                            $menu = [
+                                [load_lang("return"), '?action=w&title='.urlencode($_GET['title'])]
+                            ];
+                        }
+                    }
                 } else {
                     $get_data = "404";
                 }
                 
-                echo load_skin("", $get_data,
-                    [
-                        [load_lang('edit'), '?action=edit&title='.urlencode($_GET['title'])],
-                        [load_lang("history"), '?action=history&title='.urlencode($_GET['title'])]
-                    ], ["title" => $_GET['title']]);
+                echo load_skin("", $get_data, $menu, $title);
             } else {
                 echo redirect();
             }
@@ -236,7 +260,7 @@
                 $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
                     $html_data = $html_data."
-                        ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
+                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
                         <br>
                     ";
                 }
@@ -255,7 +279,7 @@
             $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
                 $html_data = $html_data."
-                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | ".$in_data["num"]." | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
+                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | <a href=\"?action=history&title=".urlencode($in_data["title"])."\">".$in_data["num"]."</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
                     <br>
                 ";
             }
