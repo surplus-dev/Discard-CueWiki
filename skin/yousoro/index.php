@@ -38,6 +38,7 @@
                         <a href=\"".url_fix()."\">".load_lang("main")."</a>
                         <a href=\"?action=r_change\">".load_lang("recent_changes")."</a>
                         <a href=\"?action=o_tool\">".load_lang("other_tool")."</a>
+                        <a href=\"?action=u_menu\">".load_lang("users_menu")."</a>
                     </div>
                     <div id=\"middle\">
                         <div id=\"title\">

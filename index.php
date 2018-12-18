@@ -287,6 +287,16 @@
             echo load_skin("", $html_data, [], ["title" => load_lang("recent_changes")]);
 
             break;
+        case "u_menu":
+            $html_data = "
+                <a href=\"?action=sign_up\">".load_lang("sign_up")."</a>
+                <br>
+                <a href=\"?action=sign_in\">".load_lang("sign_in")."</a>
+            ";
+
+            echo load_skin("", $html_data, [], ["title" => load_lang("users_menu")]);
+
+            break;
         case "o_tool":
             $html_data = "
                 ".load_lang("users_tool")."

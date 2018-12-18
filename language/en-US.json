@@ -10,5 +10,8 @@
     "users_tool" : "User's tool",
     "save" : "Save",
     "raw" : "Raw",
-    "old" : "Old"
+    "old" : "Old",
+    "users_menu" : "User's menu",
+    "sign_up" : "Sign up",
+    "sign_in" : "Sign in"
 }
