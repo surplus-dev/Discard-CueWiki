@@ -14,6 +14,8 @@
     }
 
     function load_render($title, $data) {
+        $conn = new PDO('sqlite:data.db');
+
         $data = preg_replace("/\r\n/", "\n", $data);
         $data = "\n".$data."\n";
 
@@ -41,11 +43,22 @@
 
             $data = preg_replace_callback("/\[([^\]]*)\]\(([^)]*)\)/",
                 function($matches) {
+                    $conn = new PDO('sqlite:data.db');
+                    
                     if($matches[1] === "" && $matches[2] === "") {
                         return "";
                     } else {
                         if($matches[2] === "") {
-                            return "<a href=\"?action=w&title=".urlencode($matches[1])."\">".$matches[1]."</a>";
+                            $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                            $sql -> execute(array($matches[2]));
+                            $data = $sql -> fetchAll();
+                            if($data && $data[0]["data"] !== "") {
+                                $href_class = "";
+                            } else {
+                                $href_class = "style=\"color: red;\"";
+                            }
+
+                            return "<a ".$href_class." href=\"?action=w&title=".urlencode($matches[1])."\">".$matches[1]."</a>";
                         } else {
                             if($matches[1] === "") {
                                 $out_link = $matches[2];
@@ -56,7 +69,16 @@
                             if(preg_match("/^https?:\/\//i", $matches[2])) {
                                 return "<a style=\"color: green;\" href=\"".$matches[2]."\">".$out_link."</a>";
                             } else {
-                                return "<a href=\"?action=w&title=".urlencode($matches[2])."\">".$out_link."</a>";
+                                $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                                $sql -> execute(array($matches[2]));
+                                $data = $sql -> fetchAll();
+                                if($data && $data[0]["data"] !== "") {
+                                    $href_class = "";
+                                } else {
+                                    $href_class = "style=\"color: red;\"";
+                                }
+                                
+                                return "<a ".$href_class." href=\"?action=w&title=".urlencode($matches[2])."\">".$out_link."</a>";
                             }
                         }
                     }
@@ -178,7 +200,7 @@
                     ];
                 }
                 $data = $sql -> fetchAll();
-                if($data) {
+                if($data && $data[0]["data"] !== "") {
                     if($_GET['action'] === "w") {
                         $get_data = load_render($_GET['title'], $data[0]["data"]);
                     } else {
@@ -220,8 +242,14 @@
                         $why = $_POST["why"];
                     }
 
-                    $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind) values (?, ?, ?, ?, ?, ?, "")');
-                    $sql -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR'], $why));
+                    if($_POST["data"] === "") {
+                        $type = "delete";
+                    } else {
+                        $type = "";
+                    }
+
+                    $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind, how) values (?, ?, ?, ?, ?, ?, "", ?)');
+                    $sql -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR'], $why, $type));
 
                     echo redirect("?action=w&title=".$_GET['title']);
                 } else {
@@ -255,12 +283,18 @@
             if($_GET['title']) {
                 $html_data = '';
 
-                $sql = $conn -> prepare('select num, date, who, why from history where title = ? order by date desc');
+                $sql = $conn -> prepare('select num, date, who, why, how from history where title = ? order by date desc');
                 $sql -> execute(array($_GET['title']));
                 $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
+                    if($in_data["how"] === "") {
+                        $type = "edit";
+                    } else {
+                        $type = $in_data["how"];
+                    }
+
                     $html_data = $html_data."
-                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
+                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".$type." | ".$in_data["why"]."
                         <br>
                     ";
                 }
@@ -274,12 +308,18 @@
         case "r_change":
             $html_data = '';
 
-            $sql = $conn -> prepare('select num, title, date, who, why from history order by date desc limit 50');
+            $sql = $conn -> prepare('select num, title, date, who, why, how from history order by date desc limit 50');
             $sql -> execute();
             $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
+                if($in_data["how"] === "") {
+                    $type = "edit";
+                } else {
+                    $type = $in_data["how"];
+                }
+
                 $html_data = $html_data."
-                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | <a href=\"?action=history&title=".urlencode($in_data["title"])."\">".$in_data["num"]."</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".$in_data["why"]."
+                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | <a href=\"?action=history&title=".urlencode($in_data["title"])."\">".$in_data["num"]."</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".$type." | ".$in_data["why"]."
                     <br>
                 ";
             }
