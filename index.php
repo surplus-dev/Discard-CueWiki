@@ -6,11 +6,32 @@
     $setting = json_decode(file_get_contents('./setting.json'), true);
     require_once('./skin/'.$setting['skin'].'/index.php');
 
+    $conn = new PDO('sqlite:data.db');
+    session_start();
+
     function xss_protect($data) {
         $data = preg_replace("/</", "&lt;", $data);
         $data = preg_replace("/>/", "&gt;", $data);
 
         return $data;
+    }
+
+    function load_id() {
+        if($_SESSION["id"]) {
+            $id = $_SESSION["id"];
+        } else {
+            $id = $_SERVER['REMOTE_ADDR'];
+        }
+
+        return $id;
+    }
+    
+    function ip_or_id($data) {
+        if(preg_match("/\.|:/", $data)) {
+            return TRUE;
+        } else {
+            return FALSE;
+        }
     }
 
     function load_render($title, $data) {
@@ -132,15 +153,15 @@
         return $main_skin;
     }
     
+    function load_error($data = "Missing error") {
+        return load_skin("", $data, [], ["title" => load_lang("error")]);
+    }
+    
     $lang_file = [];
     
     $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), true);
 
-    $inter_version = "v0.0.02";
-    $version = "0002";
-
-    $conn = new PDO('sqlite:data.db');
-    session_start();
+    $version = "v0.0.03";
 
     $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
     $sql -> execute();
@@ -166,12 +187,26 @@
         $data = $data[0]['data'];
     }
 
-    if((int)$data < 0002) {
+    if((int)$data < 2) {
         $sql = $conn -> prepare('alter table history add how text default ""');
         $sql -> execute();
 
-        $sql = $conn -> prepare('update setting set data = ? Where title = "version"');
-        $sql -> execute(array($version));
+        $sql = $conn -> prepare('update setting set data = "0002" Where title = "version"');
+        $sql -> execute();
+    }
+
+    if((int)$data < 3) {
+        $sql = $conn -> prepare('create table if not exists user(id text, pw text, encode text)');
+        $sql -> execute();
+        
+        $sql = $conn -> prepare('create table if not exists user_set(title text, data text)');
+        $sql -> execute();
+
+        $sql = $conn -> prepare('alter table user_set add id text default ""');
+        $sql -> execute();
+
+        $sql = $conn -> prepare('update setting set data = "0003" Where title = "version"');
+        $sql -> execute();
     }
 
     switch($_GET['action']) {
@@ -249,7 +284,7 @@
                     }
 
                     $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind, how) values (?, ?, ?, ?, ?, ?, "", ?)');
-                    $sql -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), $_SERVER['REMOTE_ADDR'], $why, $type));
+                    $sql -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), load_id(), $why, $type));
 
                     echo redirect("?action=w&title=".$_GET['title']);
                 } else {
@@ -328,14 +363,142 @@
 
             break;
         case "u_menu":
+            $id = load_id();
+
+            $sql = $conn -> prepare('select data from user_set where title = "acl" and id = ?');
+            $sql -> execute(array($id));
+            $data = $sql -> fetchAll();
+            if($data) {
+                $acl = $data[0]["data"];
+            } else {
+                if(ip_or_id($id)) {
+                    $acl = "IP";
+                } else {
+                    $acl = "User";
+                }
+            }
+
             $html_data = "
+                ID | ".$id."
+                <br>
+                ACL | ".$acl."
+                <br>
+                <br>
                 <a href=\"?action=sign_up\">".load_lang("sign_up")."</a>
                 <br>
                 <a href=\"?action=sign_in\">".load_lang("sign_in")."</a>
+                <br>
+                <a href=\"?action=sign_out\">".load_lang("sign_out")."</a>
             ";
 
             echo load_skin("", $html_data, [], ["title" => load_lang("users_menu")]);
 
+            break;
+        case "sign_in":
+            if($_SESSION["id"] === NULL) {
+                if($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    $sql = $conn -> prepare('select pw from user where id = ?');
+                    $sql -> execute(array($_POST["id"]));
+                    $data = $sql -> fetchAll();
+                    if($data) {
+                        if($data[0]["pw"] === hash("sha256", $_POST["pw"])) {
+                            $_SESSION["id"] = $_POST["id"];
+
+                            echo redirect("?action=u_menu");
+                        } else {
+                            echo load_error(load_lang("pw_not_same_e"));
+                        }
+                    } else {
+                        echo load_error(load_lang("id_not_exist_e"));
+                    }
+                } else {            
+                    $html_data = "
+                        <form method=\"post\">
+                            ID
+                            <br>
+                            <input name=\"id\"></input>
+                            <br>
+                            <br>
+                            Password
+                            <br>
+                            <input name=\"pw\" type=\"password\"></input>
+                            <br>
+                            <br>
+                            <button type=\"submit\">".load_lang("sign_in")."</button>
+                        </form>
+                    ";
+                    
+                    echo load_skin("", $html_data, [[load_lang("return"), "?action=u_menu"]], ["title" => load_lang("sign_in")]);                    
+                }
+            } else {
+                echo redirect("?action=u_menu");
+            }
+        
+            break;
+        case "sign_out":
+            $_SESSION["id"] = NULL;
+            
+            echo redirect("?action=u_menu");
+            
+            break;
+        case "sign_up":
+            if($_SESSION["id"] === NULL) {
+                if($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    if($_POST["pw"] !== $_POST["pw_2"]) {                    
+                        echo load_error(load_lang("re_not_same_e"));
+                    } else {
+                        if(!preg_match("/^[a-zA-Z0-9]+$/", $_POST["id"])) {
+                            echo load_error(load_lang("id_match_e"));
+                        } else {
+                            $sql = $conn -> prepare('select id from user where id = ?');
+                            $sql -> execute(array($_POST["id"]));
+                            $data = $sql -> fetchAll();
+                            if(!$data) {
+                                $sql = $conn -> prepare('select id from user limit 1');
+                                $sql -> execute();
+                                $data = $sql -> fetchAll();
+                                if(!$data) {
+                                    $sql = $conn -> prepare('insert into user_set (title, id, data) values ("acl", ?, "Owner")');
+                                    $sql -> execute(array($_POST["id"]));
+                                }
+
+                                $sql = $conn -> prepare('insert into user (id, pw, encode) values (?, ?, "sha256")');
+                                $sql -> execute(array($_POST["id"], hash("sha256", $_POST["pw"])));
+
+                                echo redirect("?action=u_menu");
+                            } else {
+                                echo load_error(load_lang("id_exist_e"));
+                            }
+                        }
+                    }
+                } else {
+                    $html_data = "
+                        <form method=\"post\">
+                            ID
+                            <br>
+                            <input name=\"id\"></input>
+                            <br>
+                            <br>
+                            Password
+                            <br>
+                            <input name=\"pw\" type=\"password\"></input>
+                            <br>
+                            <br>
+                            Repeat
+                            <br>
+                            <input name=\"pw_2\" type=\"password\"></input>
+                            <br>
+                            <br>
+                            <button type=\"submit\">".load_lang("sign_up")."</button>
+                        </form>
+                    ";
+                    
+                    echo load_skin("", $html_data, [[load_lang("return"), "?action=u_menu"]], ["title" => load_lang("sign_up")]);                
+                }
+            } else {
+                echo redirect("?action=u_menu");
+            }
+            
             break;
         case "o_tool":
             $html_data = "
