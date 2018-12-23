@@ -71,7 +71,7 @@
                     } else {
                         if($matches[2] === "") {
                             $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                            $sql -> execute(array($matches[2]));
+                            $sql -> execute([$matches[2]]);
                             $data = $sql -> fetchAll();
                             if($data && $data[0]["data"] !== "") {
                                 $href_class = "";
@@ -91,7 +91,7 @@
                                 return "<a style=\"color: green;\" href=\"".$matches[2]."\">".$out_link."</a>";
                             } else {
                                 $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                                $sql -> execute(array($matches[2]));
+                                $sql -> execute([$matches[2]]);
                                 $data = $sql -> fetchAll();
                                 if($data && $data[0]["data"] !== "") {
                                     $href_class = "";
@@ -180,7 +180,7 @@
         $sql -> execute();
 
         $sql = $conn -> prepare('insert into setting (title, data) values ("version", ?)');
-        $sql -> execute(array($version));
+        $sql -> execute([$version]);
 
         $data = '0001';
     } else {
@@ -219,14 +219,14 @@
             if($_GET['title']) {
                 if($_GET['num']) {
                     $sql = $conn -> prepare('select data from history where title = ? and num = ? order by date desc limit 1');
-                    $sql -> execute(array($_GET['title'], $_GET['num']));
+                    $sql -> execute([$_GET['title'], $_GET['num']]);
                     $title = ["title" => $_GET['title'], "sub" => $_GET['num']];
                     $menu = [
                         [load_lang("return"), '?action=history&title='.urlencode($_GET['title'])]
                     ];
                 } else {
                     $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                    $sql -> execute(array($_GET['title']));
+                    $sql -> execute([$_GET['title']]);
                     $title = ["title" => $_GET['title']];
                     $menu = [
                         [load_lang('edit'), '?action=edit&title='.urlencode($_GET['title'])],
@@ -263,7 +263,7 @@
             if($_GET['title']) {
                 if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sql = $conn -> prepare('select num from history where title = ? order by date desc limit 1');
-                    $sql -> execute(array($_GET['title']));
+                    $sql -> execute([$_GET['title']]);
                     $data = $sql -> fetchAll();
                     if($data) {
                         $num = (string)((int)$data[0]["num"] + 1);
@@ -284,12 +284,12 @@
                     }
 
                     $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind, how) values (?, ?, ?, ?, ?, ?, "", ?)');
-                    $sql -> execute(array($num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), load_id(), $why, $type));
+                    $sql -> execute([$num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), load_id(), $why, $type]);
 
                     echo redirect("?action=w&title=".$_GET['title']);
                 } else {
                     $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                    $sql -> execute(array($_GET['title']));
+                    $sql -> execute([$_GET['title']]);
                     $data = $sql -> fetchAll();
                     if($data) {
                         $get_data = $data[0]["data"];
@@ -319,7 +319,7 @@
                 $html_data = '';
 
                 $sql = $conn -> prepare('select num, date, who, why, how from history where title = ? order by date desc');
-                $sql -> execute(array($_GET['title']));
+                $sql -> execute([$_GET['title']]);
                 $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
                     if($in_data["how"] === "") {
@@ -366,7 +366,7 @@
             $id = load_id();
 
             $sql = $conn -> prepare('select data from user_set where title = "acl" and id = ?');
-            $sql -> execute(array($id));
+            $sql -> execute([$id]);
             $data = $sql -> fetchAll();
             if($data) {
                 $acl = $data[0]["data"];
@@ -398,7 +398,7 @@
             if($_SESSION["id"] === NULL) {
                 if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sql = $conn -> prepare('select pw from user where id = ?');
-                    $sql -> execute(array($_POST["id"]));
+                    $sql -> execute([$_POST["id"]]);
                     $data = $sql -> fetchAll();
                     if($data) {
                         if($data[0]["pw"] === hash("sha256", $_POST["pw"])) {
@@ -451,7 +451,7 @@
                             echo load_error(load_lang("id_match_e"));
                         } else {
                             $sql = $conn -> prepare('select id from user where id = ?');
-                            $sql -> execute(array($_POST["id"]));
+                            $sql -> execute([$_POST["id"]]);
                             $data = $sql -> fetchAll();
                             if(!$data) {
                                 $sql = $conn -> prepare('select id from user limit 1');
@@ -459,11 +459,11 @@
                                 $data = $sql -> fetchAll();
                                 if(!$data) {
                                     $sql = $conn -> prepare('insert into user_set (title, id, data) values ("acl", ?, "Owner")');
-                                    $sql -> execute(array($_POST["id"]));
+                                    $sql -> execute([$_POST["id"]]);
                                 }
 
                                 $sql = $conn -> prepare('insert into user (id, pw, encode) values (?, ?, "sha256")');
-                                $sql -> execute(array($_POST["id"], hash("sha256", $_POST["pw"])));
+                                $sql -> execute([$_POST["id"], hash("sha256", $_POST["pw"])]);
 
                                 echo redirect("?action=u_menu");
                             } else {

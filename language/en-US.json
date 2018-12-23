@@ -13,5 +13,13 @@
     "old" : "Old",
     "users_menu" : "User's menu",
     "sign_up" : "Sign up",
-    "sign_in" : "Sign in"
+    "sign_in" : "Sign in",
+    "sign_out" : "Sign out",
+    "error" : "Error",
+    
+    "re_not_same_e" : "Password and Repeat are not same",
+    "id_match_e" : "ID has only Alphabet and number",
+    "id_exist_e" : "Using this ID people is exist",
+    "id_not_exist_e" : "Nobody use this id",
+    "pw_not_same_e" : "Password is wrong"
 }
