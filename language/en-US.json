@@ -21,5 +21,6 @@
     "id_match_e" : "ID has only Alphabet and number",
     "id_exist_e" : "Using this ID people is exist",
     "id_not_exist_e" : "Nobody use this id",
-    "pw_not_same_e" : "Password is wrong"
+    "pw_not_same_e" : "Password is wrong",
+    "acl_e" : "You don't have enough ACL"
 }

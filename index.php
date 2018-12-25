@@ -34,6 +34,25 @@
         }
     }
 
+    function load_acl() {
+        $conn = new PDO('sqlite:data.db');
+
+        if($_SESSION["id"]) {
+            $sql = $conn -> prepare('select data from user_set where title = "acl" and id = ?');
+            $sql -> execute([$_SESSION["id"]]);
+            $data = $sql -> fetchAll();
+            if($data) {
+                $acl = $data[0]["data"];
+            } else {
+                $acl = "registered";
+            }
+
+            return $acl;
+        } else {
+            return "ip";
+        }
+    }
+
     function load_render($title, $data) {
         $conn = new PDO('sqlite:data.db');
 
@@ -153,15 +172,15 @@
         return $main_skin;
     }
     
-    function load_error($data = "Missing error") {
-        return load_skin("", $data, [], ["title" => load_lang("error")]);
+    function load_error($data = "Missing error", $menu = []) {
+        return load_skin("", $data, $menu, ["title" => load_lang("error")]);
     }
     
     $lang_file = [];
     
     $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), true);
 
-    $version = "v0.0.03";
+    $version = "v0.0.04";
 
     $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
     $sql -> execute();
@@ -209,6 +228,14 @@
         $sql -> execute();
     }
 
+    if((int)$data < 4) {
+        $sql = $conn -> prepare('create table if not exists acl(title text, acl text, topic text)');
+        $sql -> execute();
+
+        $sql = $conn -> prepare('update setting set data = "0004" Where title = "version"');
+        $sql -> execute();
+    }
+
     switch($_GET['action']) {
         case "":
             echo redirect("?action=w&title=Wiki:Main");
@@ -231,7 +258,8 @@
                     $menu = [
                         [load_lang('edit'), '?action=edit&title='.urlencode($_GET['title'])],
                         [load_lang('raw'), '?action=raw&title='.urlencode($_GET['title'])],
-                        [load_lang("history"), '?action=history&title='.urlencode($_GET['title'])]
+                        [load_lang("history"), '?action=history&title='.urlencode($_GET['title'])],
+                        ["ACL", '?action=acl&title='.urlencode($_GET['title'])]
                     ];
                 }
                 $data = $sql -> fetchAll();
@@ -259,55 +287,183 @@
             }
 
             break;
+        case "acl":
+            if($_GET['title']) {
+                if(in_array(load_acl(), ["owner", "admin"])) {
+                    if($_SERVER['REQUEST_METHOD'] === 'POST') {
+                        $sql = $conn -> prepare('select acl from acl where title = ?');
+                        $sql -> execute([$_GET['title']]);
+                        $data = $sql -> fetchAll();
+                        if($data) {
+                            if($_POST["acl"] !== "ip") {
+                                $sql = $conn -> prepare('update acl set acl = ? where title = ?');
+                                $sql -> execute([$_POST["acl"], $_GET['title']]);
+                            } else {
+                                $sql = $conn -> prepare('delete from acl where title = ?');
+                                $sql -> execute([$_GET['title']]);
+                            }       
+                        } else {
+                            if($_POST["acl"] !== "ip") {
+                                $sql = $conn -> prepare('insert into acl (title, acl, topic) values (?, ?, "")');
+                                $sql -> execute([$_GET['title'], $_POST["acl"]]);
+                            }
+                        }
+
+                        echo redirect('?action=w&title='.$_GET['title']);
+                    } else {
+                        $sql = $conn -> prepare('select acl from acl where title = ?');
+                        $sql -> execute([$_GET['title']]);
+                        $data = $sql -> fetchAll();
+                        if($data) {
+                            switch($data[0]['acl']) {
+                                case "register":
+                                    $option = "
+                                        <option value=\"register\">Registered</option>
+                                        <option value=\"ip\">IP</option>    
+                                        <option value=\"admin\">Admin</option>
+                                        <option value=\"owner\">Owner</option>
+                                    ";
+
+                                    break;
+                                case "admin":
+                                    $option = "
+                                        <option value=\"admin\">Admin</option>
+                                        <option value=\"ip\">IP</option>    
+                                        <option value=\"register\">Registered</option>
+                                        <option value=\"owner\">Owner</option>
+                                    ";
+
+                                    break;
+                                case "owner":
+                                    $option = "
+                                        <option value=\"owner\">Owner</option>
+                                        <option value=\"ip\">IP</option>    
+                                        <option value=\"register\">Registered</option>
+                                        <option value=\"admin\">Admin</option>
+                                    ";
+
+                                    break;
+                            }
+                        } else {
+                            $option = "
+                                <option value=\"ip\">IP</option>    
+                                <option value=\"register\">Registered</option>
+                                <option value=\"admin\">Admin</option>
+                                <option value=\"owner\">Owner</option>
+                            ";
+                        }
+                        $html_data = "
+                            <form method=\"post\">
+                                <select name=\"acl\">
+                                    ".$option."
+                                </select>
+                                <br>
+                                <br>
+                                <button type=\"submit\">".load_lang("save")."</button>
+                            </form>
+                        ";
+                        echo load_skin("", $html_data, [[load_lang("return"), '?action=w&title='.urlencode($_GET['title'])]], ["title" => $_GET['title'], "sub" => "ACL"]);
+                    }
+                } else {
+                    echo load_error(load_lang("acl_e"), [[load_lang("return"), '?action=w&title='.urlencode($_GET['title'])]]);
+                }
+            } else {
+                echo redirect();
+            }
+
+            break;
         case "edit":
             if($_GET['title']) {
-                if($_SERVER['REQUEST_METHOD'] === 'POST') {
-                    $sql = $conn -> prepare('select num from history where title = ? order by date desc limit 1');
-                    $sql -> execute([$_GET['title']]);
-                    $data = $sql -> fetchAll();
-                    if($data) {
-                        $num = (string)((int)$data[0]["num"] + 1);
-                    } else {
-                        $num = "1";
-                    }
-                    
-                    if(mb_strlen($_POST["why"], 'UTF-8') > 64) {
-                        $why = "";
-                    } else {
-                        $why = $_POST["why"];
-                    }
+                $sql = $conn -> prepare('select acl from acl where title = ?');
+                $sql -> execute([$_GET['title']]);
+                $data = $sql -> fetchAll();
+                if($data) {
+                    $pass = FALSE;
 
-                    if($_POST["data"] === "") {
-                        $type = "delete";
-                    } else {
-                        $type = "";
+                    $acl = load_acl();
+                    switch($data[0]["acl"]) {
+                        case "owner":
+                            if($acl === "owner") {
+                                $pass = TRUE;
+                            }
+                            
+                            break;
+                        case "admin":
+                            $check = ["owner", "admin"];
+                            if(in_array($acl, $check)) {
+                                $pass = TRUE;
+                            }
+
+                            break;
+                        case "registered":
+                            if($acl !== "ip") {
+                                $pass = TRUE;
+                            }
+                            
+                            break;
                     }
-
-                    $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind, how) values (?, ?, ?, ?, ?, ?, "", ?)');
-                    $sql -> execute([$num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), load_id(), $why, $type]);
-
-                    echo redirect("?action=w&title=".$_GET['title']);
                 } else {
-                    $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                    $pass = TRUE;
+                }
+
+                if($pass === TRUE) {
+                    if($_SERVER['REQUEST_METHOD'] === 'POST') {
+                        $sql = $conn -> prepare('select num from history where title = ? order by date desc limit 1');
+                        $sql -> execute([$_GET['title']]);
+                        $data = $sql -> fetchAll();
+                        if($data) {
+                            $num = (string)((int)$data[0]["num"] + 1);
+                        } else {
+                            $num = "1";
+                        }
+                        
+                        if(mb_strlen($_POST["why"], 'UTF-8') > 64) {
+                            $why = "";
+                        } else {
+                            $why = $_POST["why"];
+                        }
+
+                        if($_POST["data"] === "") {
+                            $type = "delete";
+                        } else {
+                            $type = "";
+                        }
+
+                        $sql = $conn -> prepare('insert into history (num, title, data, date, who, why, blind, how) values (?, ?, ?, ?, ?, ?, "", ?)');
+                        $sql -> execute([$num, $_GET['title'], $_POST["data"], (string)date("Y-m-d H:i:s"), load_id(), $why, $type]);
+
+                        echo redirect("?action=w&title=".$_GET['title']);
+                    } else {
+                        $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
+                        $sql -> execute([$_GET['title']]);
+                        $data = $sql -> fetchAll();
+                        if($data) {
+                            $get_data = $data[0]["data"];
+                        } else {
+                            $get_data = "";
+                        }
+
+                        echo load_skin("", "
+                            <form method=\"post\">
+                                <textarea style=\"width: 500px; height: 300px;\" name=\"data\">".$get_data."</textarea>
+                                <br>
+                                <br>
+                                <input name=\"why\"></input>
+                                <br>
+                                <br>
+                                <button type=\"submit\">".load_lang("save")."</button>
+                            </form>
+                        ", [[load_lang("return"), "?action=w&title=".$_GET['title']]], ["title" => $_GET['title'], "sub" => load_lang("edit")]);
+                    }
+                } else {
+                    $sql = $conn -> prepare('select acl from acl where title = ?');
                     $sql -> execute([$_GET['title']]);
                     $data = $sql -> fetchAll();
                     if($data) {
-                        $get_data = $data[0]["data"];
+                        echo load_error(load_lang("acl_e")."<br><br>ACL | ".$data[0]["acl"], [[load_lang("return"), '?action=w&title='.urlencode($_GET['title'])]]);
                     } else {
-                        $get_data = "";
+                        echo load_error(load_lang("acl_e"), [[load_lang("return"), '?action=w&title='.urlencode($_GET['title'])]]);
                     }
-
-                    echo load_skin("", "
-                        <form method=\"post\">
-                            <textarea style=\"width: 500px; height: 300px;\" name=\"data\">".$get_data."</textarea>
-                            <br>
-                            <br>
-                            <input name=\"why\"></input>
-                            <br>
-                            <br>
-                            <button type=\"submit\">".load_lang("save")."</button>
-                        </form>
-                    ", [[load_lang("return"), "?action=w&title=".$_GET['title']]], ["title" => $_GET['title'], "sub" => load_lang("edit")]);
                 }
             } else {
                 echo redirect();
@@ -364,19 +520,7 @@
             break;
         case "u_menu":
             $id = load_id();
-
-            $sql = $conn -> prepare('select data from user_set where title = "acl" and id = ?');
-            $sql -> execute([$id]);
-            $data = $sql -> fetchAll();
-            if($data) {
-                $acl = $data[0]["data"];
-            } else {
-                if(ip_or_id($id)) {
-                    $acl = "IP";
-                } else {
-                    $acl = "User";
-                }
-            }
+            $acl = load_acl();
 
             $html_data = "
                 ID | ".$id."
@@ -406,10 +550,10 @@
 
                             echo redirect("?action=u_menu");
                         } else {
-                            echo load_error(load_lang("pw_not_same_e"));
+                            echo load_error(load_lang("pw_not_same_e"), [[load_lang("return"), '?action=sign_in']]);
                         }
                     } else {
-                        echo load_error(load_lang("id_not_exist_e"));
+                        echo load_error(load_lang("id_not_exist_e"), [[load_lang("return"), '?action=sign_in']]);
                     }
                 } else {            
                     $html_data = "
@@ -445,10 +589,10 @@
             if($_SESSION["id"] === NULL) {
                 if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if($_POST["pw"] !== $_POST["pw_2"]) {                    
-                        echo load_error(load_lang("re_not_same_e"));
+                        echo load_error(load_lang("re_not_same_e"), [[load_lang("return"), '?action=sign_up']]);
                     } else {
                         if(!preg_match("/^[a-zA-Z0-9]+$/", $_POST["id"])) {
-                            echo load_error(load_lang("id_match_e"));
+                            echo load_error(load_lang("id_match_e"), [[load_lang("return"), '?action=sign_up']]);
                         } else {
                             $sql = $conn -> prepare('select id from user where id = ?');
                             $sql -> execute([$_POST["id"]]);
@@ -458,7 +602,7 @@
                                 $sql -> execute();
                                 $data = $sql -> fetchAll();
                                 if(!$data) {
-                                    $sql = $conn -> prepare('insert into user_set (title, id, data) values ("acl", ?, "Owner")');
+                                    $sql = $conn -> prepare('insert into user_set (title, id, data) values ("acl", ?, "owner")');
                                     $sql -> execute([$_POST["id"]]);
                                 }
 
@@ -467,7 +611,7 @@
 
                                 echo redirect("?action=u_menu");
                             } else {
-                                echo load_error(load_lang("id_exist_e"));
+                                echo load_error(load_lang("id_exist_e"), [[load_lang("return"), '?action=sign_up']]);
                             }
                         }
                     }
