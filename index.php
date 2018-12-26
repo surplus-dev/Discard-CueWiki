@@ -3,7 +3,7 @@
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL & ~E_NOTICE);
 
-    $setting = json_decode(file_get_contents('./setting.json'), true);
+    $setting = json_decode(file_get_contents('./setting.json'), TRUE);
     require_once('./skin/'.$setting['skin'].'/index.php');
 
     $conn = new PDO('sqlite:data.db');
@@ -24,6 +24,35 @@
         }
 
         return $id;
+    }
+
+    function load_pass($data = "owner") {
+        $pass = FALSE;
+
+        $acl = load_acl();
+        switch($data) {
+            case "owner":
+                if($acl === "owner") {
+                    $pass = TRUE;
+                }
+                
+                break;
+            case "admin":
+                $check = ["owner", "admin"];
+                if(in_array($acl, $check)) {
+                    $pass = TRUE;
+                }
+
+                break;
+            case "registered":
+                if($acl !== "ip") {
+                    $pass = TRUE;
+                }
+                
+                break;
+        }
+        
+        return $pass;
     }
     
     function ip_or_id($data) {
@@ -175,10 +204,22 @@
     function load_error($data = "Missing error", $menu = []) {
         return load_skin("", $data, $menu, ["title" => load_lang("error")]);
     }
+
+    function change_alphabet($data) {        
+        return preg_replace_callback("/^([a-z]+)$/",
+            function($matches) {
+                if(in_array($matches[1], ["ip"])) {
+                    return strtoupper($matches[1]);
+                } else {
+                    return ucfirst($matches[1]);
+                }
+            }
+        , $data);
+    }
     
     $lang_file = [];
     
-    $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), true);
+    $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), TRUE);
 
     $version = "v0.0.04";
 
@@ -289,7 +330,9 @@
             break;
         case "acl":
             if($_GET['title']) {
-                if(in_array(load_acl(), ["owner", "admin"])) {
+                $pass = load_pass("admin");
+
+                if($pass) {
                     if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sql = $conn -> prepare('select acl from acl where title = ?');
                         $sql -> execute([$_GET['title']]);
@@ -377,36 +420,9 @@
                 $sql = $conn -> prepare('select acl from acl where title = ?');
                 $sql -> execute([$_GET['title']]);
                 $data = $sql -> fetchAll();
-                if($data) {
-                    $pass = FALSE;
+                $pass = load_pass($data[0]["acl"]);
 
-                    $acl = load_acl();
-                    switch($data[0]["acl"]) {
-                        case "owner":
-                            if($acl === "owner") {
-                                $pass = TRUE;
-                            }
-                            
-                            break;
-                        case "admin":
-                            $check = ["owner", "admin"];
-                            if(in_array($acl, $check)) {
-                                $pass = TRUE;
-                            }
-
-                            break;
-                        case "registered":
-                            if($acl !== "ip") {
-                                $pass = TRUE;
-                            }
-                            
-                            break;
-                    }
-                } else {
-                    $pass = TRUE;
-                }
-
-                if($pass === TRUE) {
+                if($pass) {
                     if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sql = $conn -> prepare('select num from history where title = ? order by date desc limit 1');
                         $sql -> execute([$_GET['title']]);
@@ -525,7 +541,7 @@
             $html_data = "
                 ID | ".$id."
                 <br>
-                ACL | ".$acl."
+                ACL | ".change_alphabet($acl)."
                 <br>
                 <br>
                 <a href=\"?action=sign_up\">".load_lang("sign_up")."</a>
