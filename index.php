@@ -26,7 +26,7 @@
         return $id;
     }
 
-    function load_pass($data = "owner") {
+    function load_pass($data = "admin") {
         $pass = FALSE;
 
         $acl = load_acl();
@@ -221,7 +221,7 @@
     
     $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), TRUE);
 
-    $version = "v0.0.04";
+    $version = "v0.0.05";
 
     $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
     $sql -> execute();
@@ -274,6 +274,14 @@
         $sql -> execute();
 
         $sql = $conn -> prepare('update setting set data = "0004" Where title = "version"');
+        $sql -> execute();
+    }
+
+    if((int)$data < 5) {
+        $sql = $conn -> prepare('create table if not exists ban(name text, start text, time text)');
+        $sql -> execute();
+
+        $sql = $conn -> prepare('update setting set data = "0005" Where title = "version"');
         $sql -> execute();
     }
 
@@ -330,9 +338,7 @@
             break;
         case "acl":
             if($_GET['title']) {
-                $pass = load_pass("admin");
-
-                if($pass) {
+                if(load_pass()) {
                     if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sql = $conn -> prepare('select acl from acl where title = ?');
                         $sql -> execute([$_GET['title']]);
@@ -420,7 +426,11 @@
                 $sql = $conn -> prepare('select acl from acl where title = ?');
                 $sql -> execute([$_GET['title']]);
                 $data = $sql -> fetchAll();
-                $pass = load_pass($data[0]["acl"]);
+                if($data) {
+                    $pass = load_pass($data[0]["acl"]);
+                } else {
+                    $pass = TRUE;
+                }
 
                 if($pass) {
                     if($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -579,7 +589,7 @@
                             <input name=\"id\"></input>
                             <br>
                             <br>
-                            Password
+                            ".load_lang("password")."
                             <br>
                             <input name=\"pw\" type=\"password\"></input>
                             <br>
@@ -639,7 +649,7 @@
                             <input name=\"id\"></input>
                             <br>
                             <br>
-                            Password
+                            ".load_lang("password")."
                             <br>
                             <input name=\"pw\" type=\"password\"></input>
                             <br>
@@ -660,6 +670,59 @@
             }
             
             break;
+        case "ban":
+            if(load_pass()) {
+                if($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    if($_GET["name"]) {
+                        $name = $_GET["name"];
+                    } else {
+                        $name = $_POST["name"];
+                    }
+
+                    $sql = $conn -> prepare('select id from user where id = ?');
+                    $sql -> execute([$name]);
+                    $data = $sql -> fetchAll();
+                    if($data) {
+                        # $sql = $conn -> prepare('insert into ban (name, start, time) values (?, ?, ?)');
+                        # $sql -> execute([$name, (string)time(), $_POST["time"]]);
+                        # $data = $sql -> fetchAll();
+
+                        # echo redirect("?action=ban");
+                    } else {
+                        echo load_error(load_lang("id_not_exist_e"), [[load_lang("return"), "?action=ban"]]);
+                    }
+                } else {
+                    if(!$_GET["name"]) {
+                        $plus = "
+                            ".load_lang("name")."
+                            <br>
+                            <input name=\"name\"></input>
+                            <br>
+                            <br>
+                        ";
+                    } else {
+                        $plus = "";
+                    }
+
+                    $html_data = "
+                        <form method=\"post\">
+                            ".$plus."
+                            ".load_lang("period")."
+                            <br>
+                            <input name=\"time\" placeholder=\"".load_lang("second")."\"></input>
+                            <br>
+                            <br>
+                            <button type=\"submit\">".load_lang("save")."</button>
+                        </form>
+                    ";
+                    
+                    echo load_skin("", $html_data, [[load_lang("return"), "?action=o_tool"]], ["title" => load_lang("ban"), "sub" => $_GET["name"]]);      
+                }
+            } else {
+                echo load_error(load_lang("acl_e"), [[load_lang("return"), "?action=o_tool"]]);
+            }
+
+            break;
         case "o_tool":
             $html_data = "
                 ".load_lang("users_tool")."
@@ -670,6 +733,11 @@
                 ".load_lang("admins_tool")."
                 <br>
                 Test
+                <br>
+                <br>
+                ".load_lang("version")."
+                <br>
+                ".$version."
             ";
 
             echo load_skin("", $html_data, [], ["title" => load_lang("other_tool")]);

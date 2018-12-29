@@ -16,6 +16,12 @@
     "sign_in" : "Sign in",
     "sign_out" : "Sign out",
     "error" : "Error",
+    "period" : "Period",
+    "ban" : "Ban",
+    "name" : "Name",
+    "password" : "Password",
+    
+    "second" : "Second(s)",
     
     "re_not_same_e" : "Password and Repeat are not same",
     "id_match_e" : "ID has only Alphabet and number",

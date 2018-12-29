@@ -1,4 +1,8 @@
 <?php
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL & ~E_NOTICE);
+
     function skin_render($head, $body, $tool, $other) {
         $tool_html = "";
         foreach($tool as &$tool_data) {
