@@ -29,30 +29,55 @@
     function load_pass($data = "admin") {
         $pass = FALSE;
 
-        $acl = load_acl();
-        switch($data) {
-            case "owner":
-                if($acl === "owner") {
-                    $pass = TRUE;
-                }
-                
-                break;
-            case "admin":
-                $check = ["owner", "admin"];
-                if(in_array($acl, $check)) {
-                    $pass = TRUE;
-                }
+        if(!load_ban_off(load_id())) {
+            $acl = load_acl();
+            switch($data) {
+                case "owner":
+                    if($acl === "owner") {
+                        $pass = TRUE;
+                    }
+                    
+                    break;
+                case "admin":
+                    $check = ["owner", "admin"];
+                    if(in_array($acl, $check)) {
+                        $pass = TRUE;
+                    }
 
-                break;
-            case "registered":
-                if($acl !== "ip") {
-                    $pass = TRUE;
-                }
-                
-                break;
+                    break;
+                case "registered":
+                    if($acl !== "ip") {
+                        $pass = TRUE;
+                    }
+                    
+                    break;
+            }
         }
         
         return $pass;
+    }
+
+    function load_ban_off($name) {
+        $conn = new PDO('sqlite:data.db');
+        
+        $sql = $conn -> prepare('select start, time from ban where name = ? order by start desc limit 1');
+        $sql -> execute([$name]);
+        $data = $sql -> fetchAll();
+        if($data) {
+            if($data[0]['time'] === '') {
+                $ban_off = TRUE;
+            } else {
+                if((int)$data[0]['start'] + (int)$data[0]['time'] > (int)time()) {
+                    $ban_off = TRUE;
+                } else {
+                    $ban_off = FALSE;
+                }
+            }
+        } else {
+            $ban_off = FALSE;
+        }
+
+        return $ban_off;
     }
     
     function ip_or_id($data) {
@@ -124,7 +149,7 @@
                             if($data && $data[0]["data"] !== "") {
                                 $href_class = "";
                             } else {
-                                $href_class = "style=\"color: red;\"";
+                                $href_class = "class=\"no_link\"";
                             }
 
                             return "<a ".$href_class." href=\"?action=w&title=".urlencode($matches[1])."\">".$matches[1]."</a>";
@@ -136,7 +161,7 @@
                             }
 
                             if(preg_match("/^https?:\/\//i", $matches[2])) {
-                                return "<a style=\"color: green;\" href=\"".$matches[2]."\">".$out_link."</a>";
+                                return "<a class=\"out_link\" href=\"".$matches[2]."\">".$out_link."</a>";
                             } else {
                                 $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
                                 $sql -> execute([$matches[2]]);
@@ -144,7 +169,7 @@
                                 if($data && $data[0]["data"] !== "") {
                                     $href_class = "";
                                 } else {
-                                    $href_class = "style=\"color: red;\"";
+                                    $href_class = "class=\"no_link\"";
                                 }
                                 
                                 return "<a ".$href_class." href=\"?action=w&title=".urlencode($matches[2])."\">".$out_link."</a>";
@@ -197,6 +222,9 @@
     
     function load_skin($head = '', $body = '', $tool = [], $other = []) {
         $main_skin = skin_render($head, $body, $tool, $other);
+        
+        $main_skin = preg_replace("/\n +</", "\n<", $main_skin);
+        $main_skin = preg_replace("/>(\n| )+</", "> <", $main_skin);
 
         return $main_skin;
     }
@@ -251,7 +279,7 @@
         $sql = $conn -> prepare('alter table history add how text default ""');
         $sql -> execute();
 
-        $sql = $conn -> prepare('update setting set data = "0002" Where title = "version"');
+        $sql = $conn -> prepare('update setting set data = "0002" where title = "version"');
         $sql -> execute();
     }
 
@@ -265,7 +293,7 @@
         $sql = $conn -> prepare('alter table user_set add id text default ""');
         $sql -> execute();
 
-        $sql = $conn -> prepare('update setting set data = "0003" Where title = "version"');
+        $sql = $conn -> prepare('update setting set data = "0003" where title = "version"');
         $sql -> execute();
     }
 
@@ -273,7 +301,7 @@
         $sql = $conn -> prepare('create table if not exists acl(title text, acl text, topic text)');
         $sql -> execute();
 
-        $sql = $conn -> prepare('update setting set data = "0004" Where title = "version"');
+        $sql = $conn -> prepare('update setting set data = "0004" where title = "version"');
         $sql -> execute();
     }
 
@@ -281,7 +309,7 @@
         $sql = $conn -> prepare('create table if not exists ban(name text, start text, time text)');
         $sql -> execute();
 
-        $sql = $conn -> prepare('update setting set data = "0005" Where title = "version"');
+        $sql = $conn -> prepare('update setting set data = "0005" where title = "version"');
         $sql -> execute();
     }
 
@@ -429,7 +457,7 @@
                 if($data) {
                     $pass = load_pass($data[0]["acl"]);
                 } else {
-                    $pass = TRUE;
+                    $pass = !load_ban_off(load_id());
                 }
 
                 if($pass) {
@@ -471,7 +499,7 @@
 
                         echo load_skin("", "
                             <form method=\"post\">
-                                <textarea style=\"width: 500px; height: 300px;\" name=\"data\">".$get_data."</textarea>
+                                <textarea class=\"edit_form\" name=\"data\">".$get_data."</textarea>
                                 <br>
                                 <br>
                                 <input name=\"why\"></input>
@@ -500,7 +528,7 @@
             if($_GET['title']) {
                 $html_data = '';
 
-                $sql = $conn -> prepare('select num, date, who, why, how from history where title = ? order by date desc');
+                $sql = $conn -> prepare('select * from history where title = ? order by date desc');
                 $sql -> execute([$_GET['title']]);
                 $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
@@ -511,7 +539,7 @@
                     }
 
                     $html_data = $html_data."
-                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".$type." | ".$in_data["why"]."
+                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".load_lang($type)." | ".$in_data["why"]."
                         <br>
                     ";
                 }
@@ -525,7 +553,7 @@
         case "r_change":
             $html_data = '';
 
-            $sql = $conn -> prepare('select num, title, date, who, why, how from history order by date desc limit 50');
+            $sql = $conn -> prepare('select * from history order by date desc limit 50');
             $sql -> execute();
             $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
@@ -536,7 +564,7 @@
                 }
 
                 $html_data = $html_data."
-                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | <a href=\"?action=history&title=".urlencode($in_data["title"])."\">".$in_data["num"]."</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".$type." | ".$in_data["why"]."
+                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | <a href=\"?action=history&title=".urlencode($in_data["title"])."\">".$in_data["num"]."</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".load_lang($type)." | ".$in_data["why"]."
                     <br>
                 ";
             }
@@ -544,21 +572,59 @@
             echo load_skin("", $html_data, [], ["title" => load_lang("recent_changes")]);
 
             break;
+        case "r_bans":
+            $html_data = '';
+
+            $sql = $conn -> prepare('select * from ban order by start desc limit 50');
+            $sql -> execute();
+            $data = $sql -> fetchAll();
+            foreach($data as &$in_data) {
+                $html_data = $html_data."
+                    ".$in_data["name"]." | ".$in_data["start"]." | ".$in_data["time"]."
+                    <br>
+                ";
+            }
+
+            echo load_skin("", $html_data, [], ["title" => load_lang("recent_bans")]);
+
+            break;
         case "u_menu":
             $id = load_id();
-            $acl = load_acl();
+
+            if(!load_ban_off($id)) {
+                $acl = change_alphabet(load_acl());
+            } else {
+                $sql = $conn -> prepare('select start, time from ban where name = ? order by start desc limit 1');
+                $sql -> execute([$id]);
+                $data = $sql -> fetchAll();
+                if($data[0]['time'] === '') {
+                    $time = load_lang("limitless");
+                } else {
+                    $time = $data[0]['time']." ".load_lang("seconds");
+                }
+
+                $acl = load_lang("ban")."<br><br>".load_lang("start")." | ".(string)date("Y-m-d H:i:s", $data[0]['start'])."<br>".load_lang("period")." | ".$time;
+            }
+
+            if(ip_or_id($id)) {
+                $plus = "
+                    <a href=\"?action=sign_up\">".load_lang("sign_up")."</a>
+                    <br>
+                    <a href=\"?action=sign_in\">".load_lang("sign_in")."</a>
+                ";
+            } else {
+                $plus = "
+                    <a href=\"?action=sign_out\">".load_lang("sign_out")."</a>
+                ";
+            }
 
             $html_data = "
                 ID | ".$id."
                 <br>
-                ACL | ".change_alphabet($acl)."
+                ACL | ".$acl."
                 <br>
                 <br>
-                <a href=\"?action=sign_up\">".load_lang("sign_up")."</a>
-                <br>
-                <a href=\"?action=sign_in\">".load_lang("sign_in")."</a>
-                <br>
-                <a href=\"?action=sign_out\">".load_lang("sign_out")."</a>
+                ".$plus."
             ";
 
             echo load_skin("", $html_data, [], ["title" => load_lang("users_menu")]);
@@ -679,18 +745,17 @@
                         $name = $_POST["name"];
                     }
 
-                    $sql = $conn -> prepare('select id from user where id = ?');
-                    $sql -> execute([$name]);
-                    $data = $sql -> fetchAll();
-                    if($data) {
-                        # $sql = $conn -> prepare('insert into ban (name, start, time) values (?, ?, ?)');
-                        # $sql -> execute([$name, (string)time(), $_POST["time"]]);
-                        # $data = $sql -> fetchAll();
+                    $ban_off = load_ban_off($name);
 
-                        # echo redirect("?action=ban");
+                    if(!$ban_off) {
+                        $sql = $conn -> prepare('insert into ban (name, start, time) values (?, ?, ?)');
+                        $sql -> execute([$name, (string)time(), $_POST["time"]]);
                     } else {
-                        echo load_error(load_lang("id_not_exist_e"), [[load_lang("return"), "?action=ban"]]);
+                        $sql = $conn -> prepare('update ban set time = "0" where name = ? and start = ?');
+                        $sql -> execute([$name, $data[0]['start']]);
                     }
+
+                    echo redirect("?action=r_bans");
                 } else {
                     if(!$_GET["name"]) {
                         $plus = "
@@ -709,7 +774,7 @@
                             ".$plus."
                             ".load_lang("period")."
                             <br>
-                            <input name=\"time\" placeholder=\"".load_lang("second")."\"></input>
+                            <input name=\"time\" placeholder=\"".load_lang("seconds")."\"></input>
                             <br>
                             <br>
                             <button type=\"submit\">".load_lang("save")."</button>
