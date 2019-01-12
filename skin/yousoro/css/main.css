@@ -13,6 +13,39 @@ body {
     padding: 20px;
 }
 
+#bottom {
+    width: 100%;
+    padding: 20px;
+    border-top: 1px solid #aaa;
+    border-bottom: 1px solid #aaa;
+}
+
+@media screen and (min-width: 800px) {
+    #middle {
+        margin: auto;
+    }
+}
+
+@media screen and (max-width: 800px) {
+    .no_mobile {
+        display: none;
+    }
+}
+
+@media screen and (min-width: 1000px) {
+    #middle {
+        width: 75%;
+        border-left: 1px solid #aaa;
+        border-right: 1px solid #aaa;
+    }
+}
+
+@media screen and (min-width: 1500px) {
+    #middle {
+        width: 50%;
+    }
+}
+
 #main_title {
     font-size: 24px;
 }
@@ -28,4 +61,8 @@ body {
 .edit_form {
     width: 100%;
     height: 500px;
+}
+
+a {
+    text-decoration: none;
 }

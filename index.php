@@ -797,7 +797,7 @@
                 <br>
                 ".load_lang("admins_tool")."
                 <br>
-                Test
+                <a href=\"/ban\">".load_lang("ban")."</a>
                 <br>
                 <br>
                 ".load_lang("version")."
