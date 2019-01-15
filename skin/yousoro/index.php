@@ -6,8 +6,10 @@
     function skin_render($head, $body, $tool, $other) {
         $tool_html = "";
         foreach($tool as &$tool_data) {
-            $tool_html = $tool_html."<a href=".$tool_data[1].">".$tool_data[0]."</a> ";
+            $tool_html = $tool_html."<a href=".$tool_data[1].">".$tool_data[0]."</a> | ";
         }
+
+        $tool_html = preg_replace("/\| $/", "", $tool_html);
 
         if(!$other["title"]) {
             $other["title"] = "";
