@@ -206,10 +206,6 @@
         return preg_replace('/\/index.php$/' , '', $_SERVER['PHP_SELF']).$url;
     }
 
-    function url_fix($url = '') {
-        return $_SERVER['PHP_SELF'].$url;
-    }
-    
     function load_lang($data) {
         global $lang_file;
 
@@ -221,7 +217,27 @@
     }
     
     function load_skin($head = '', $body = '', $tool = [], $other = []) {
-        $main_skin = skin_render($head, $body, $tool, $other);
+        $next = "";
+
+        if($other["list"]) {
+            if(($other["list"][0] !== 0 && $other["list"][0]) || $other["list"][1]) {
+                $now_url = preg_replace("/&count=[0-9]*/i", "", $_SERVER['REQUEST_URI']);
+
+                if($other["list"][0] !== 0 && $other["list"][0]) {
+                    $next = $next."<br><br><a href=\"".$now_url."&count=".(string)((int)$other["list"][0] - 1)."\">Before</a> ";
+                }
+
+                if($other["list"][1]) {
+                    if($next === "") {
+                        $next = $next."<br><br><a href=\"".$now_url."&count=".(string)((int)$other["list"][0] + 1)."\">Next</a>";
+                    } else {
+                        $next = $next."| <a href=\"".$now_url."&count=".(string)((int)$other["list"][0] + 1)."\">Next</a>";
+                    }
+                }
+            }
+        }
+
+        $main_skin = skin_render($head, $body.$next, $tool, $other);
         
         $main_skin = preg_replace("/\n +</", "\n<", $main_skin);
         $main_skin = preg_replace("/>(\n| )+</", "> <", $main_skin);
@@ -252,20 +268,20 @@
     $version = "v0.0.05";
 
     $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
-    $sql -> execute();
+    $sql -> execute([]);
     
     $sql = $conn -> prepare('select data from setting where title = "version"');
-    $sql -> execute();
+    $sql -> execute([]);
     $data = $sql -> fetchAll();
     if(!$data) {
         $sql = $conn -> prepare('create table if not exists history(num text, title text, data text, date text, who text)');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('alter table history add why text default ""');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('alter table history add blind text default ""');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('insert into setting (title, data) values ("version", ?)');
         $sql -> execute([$version]);
@@ -277,40 +293,40 @@
 
     if((int)$data < 2) {
         $sql = $conn -> prepare('alter table history add how text default ""');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('update setting set data = "0002" where title = "version"');
-        $sql -> execute();
+        $sql -> execute([]);
     }
 
     if((int)$data < 3) {
         $sql = $conn -> prepare('create table if not exists user(id text, pw text, encode text)');
-        $sql -> execute();
+        $sql -> execute([]);
         
         $sql = $conn -> prepare('create table if not exists user_set(title text, data text)');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('alter table user_set add id text default ""');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('update setting set data = "0003" where title = "version"');
-        $sql -> execute();
+        $sql -> execute([]);
     }
 
     if((int)$data < 4) {
         $sql = $conn -> prepare('create table if not exists acl(title text, acl text, topic text)');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('update setting set data = "0004" where title = "version"');
-        $sql -> execute();
+        $sql -> execute([]);
     }
 
     if((int)$data < 5) {
         $sql = $conn -> prepare('create table if not exists ban(name text, start text, time text)');
-        $sql -> execute();
+        $sql -> execute([]);
 
         $sql = $conn -> prepare('update setting set data = "0005" where title = "version"');
-        $sql -> execute();
+        $sql -> execute([]);
     }
 
     switch($_GET['action']) {
@@ -528,8 +544,14 @@
             if($_GET['title']) {
                 $html_data = '';
 
-                $sql = $conn -> prepare('select * from history where title = ? order by date desc');
-                $sql -> execute([$_GET['title']]);
+                if(!$_GET["count"]) {
+                    $sql = $conn -> prepare('select * from history where title = ? order by date desc limit 51');
+                    $sql -> execute([$_GET['title']]);
+                } else {
+                    $sql = $conn -> prepare('select * from history where title = ? order by date desc limit 51 offset ?');
+                    $sql -> execute([$_GET['title'], (int)$_GET["count"] * 50]);
+                }
+
                 $data = $sql -> fetchAll();
                 foreach($data as &$in_data) {
                     if($in_data["how"] === "") {
@@ -544,7 +566,7 @@
                     ";
                 }
 
-                echo load_skin("", $html_data, [[load_lang("return"), "?action=w&title=".$_GET['title']]], ["title" => $_GET['title'], "sub" => load_lang("history")]);
+                echo load_skin("", $html_data, [[load_lang("return"), "?action=w&title=".$_GET['title']]], ["title" => $_GET['title'], "sub" => load_lang("history"), "list" => [$_GET["count"], $data[50]]]);
             } else {
                 echo redirect();
             }
@@ -553,8 +575,14 @@
         case "r_change":
             $html_data = '';
 
-            $sql = $conn -> prepare('select * from history order by date desc limit 50');
-            $sql -> execute();
+            if(!$_GET["count"]) {
+                $sql = $conn -> prepare('select * from history order by date desc limit 51');
+                $sql -> execute([]);
+            } else {
+                $sql = $conn -> prepare('select * from history order by date desc limit 51 offset ?');
+                $sql -> execute([(int)$_GET["count"] * 50]);
+            }
+
             $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
                 if($in_data["how"] === "") {
@@ -569,14 +597,20 @@
                 ";
             }
 
-            echo load_skin("", $html_data, [], ["title" => load_lang("recent_changes")]);
+            echo load_skin("", $html_data, [], ["title" => load_lang("recent_changes"), "list" => [$_GET["count"], $data[50]]]);
 
             break;
-        case "r_bans":
+        case "r_ban":
             $html_data = '';
 
-            $sql = $conn -> prepare('select * from ban order by start desc limit 50');
-            $sql -> execute();
+            if(!$_GET["count"]) {
+                $sql = $conn -> prepare('select * from ban order by start desc limit 51');
+                $sql -> execute([]);
+            } else {
+                $sql = $conn -> prepare('select * from ban order by start desc limit 51 offset ?');
+                $sql -> execute([(int)$_GET["count"] * 50]);
+            }
+
             $data = $sql -> fetchAll();
             foreach($data as &$in_data) {
                 $html_data = $html_data."
@@ -585,7 +619,7 @@
                 ";
             }
 
-            echo load_skin("", $html_data, [], ["title" => load_lang("recent_bans")]);
+            echo load_skin("", $html_data, [], ["title" => load_lang("recent_bans"), "list" => [$_GET["count"], $data[50]]]);
 
             break;
         case "u_menu":
@@ -691,7 +725,7 @@
                             $data = $sql -> fetchAll();
                             if(!$data) {
                                 $sql = $conn -> prepare('select id from user limit 1');
-                                $sql -> execute();
+                                $sql -> execute([]);
                                 $data = $sql -> fetchAll();
                                 if(!$data) {
                                     $sql = $conn -> prepare('insert into user_set (title, id, data) values ("acl", ?, "owner")');
@@ -755,7 +789,7 @@
                         $sql -> execute([$name, $data[0]['start']]);
                     }
 
-                    echo redirect("?action=r_bans");
+                    echo redirect("?action=r_ban");
                 } else {
                     if(!$_GET["name"]) {
                         $plus = "
@@ -792,12 +826,12 @@
             $html_data = "
                 ".load_lang("users_tool")."
                 <br>
-                Test
+                <a href=\"?action=r_ban\">".load_lang("recent_bans")."</a>
                 <br>
                 <br>
                 ".load_lang("admins_tool")."
                 <br>
-                <a href=\"/ban\">".load_lang("ban")."</a>
+                <a href=\"?action=ban\">".load_lang("ban")."</a>
                 <br>
                 <br>
                 ".load_lang("version")."
