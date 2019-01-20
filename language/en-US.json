@@ -22,11 +22,12 @@
     "start" : "Start",
     "limitless" : "Limitless",
     "delete" : "Delete",
+    "revert" : "Revert",
     
-    "seconds" : "Second(s)",
+    "second" : "Second(s)",
 
-    "recent_changes" : "Recent changes",
-    "recent_bans" : "Recent bans",
+    "recent_change" : "Recent change(s)",
+    "recent_ban" : "Recent ban(i)",
     
     "re_not_same_e" : "Password and Repeat are not same",
     "id_match_e" : "ID has only Alphabet and number",

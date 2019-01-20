@@ -45,8 +45,8 @@
                 </head>
                 <body>
                     <div id=\"top\">
-                        <a href=\"?action=w\">".load_lang("main")."</a> |
-                        <a href=\"?action=r_change\"><i class=\"fas fa-sync-alt\"></i><span class=\"no_mobile\"> ".load_lang("recent_changes")."</span></a> |
+                        <a href=\"".$_SERVER['PHP_SELF']."\">".load_lang("main")."</a> |
+                        <a href=\"?action=r_change\"><i class=\"fas fa-sync-alt\"></i><span class=\"no_mobile\"> ".load_lang("recent_change")."</span></a> |
                         <a href=\"?action=o_tool\"><i class=\"fas fa-bars\"></i><span class=\"no_mobile\"> ".load_lang("other_tool")."</span></a> |
                         <a href=\"?action=u_menu\"><i class=\"fas fa-user\"></i><span class=\"no_mobile\"> ".load_lang("users_menu")."</span></a>
                     </div>
