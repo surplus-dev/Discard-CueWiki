@@ -1,0 +1,38 @@
+{
+    "edit" : "편집",
+    "main" : "대문으로",
+    "history" : "역사",
+    "return" : "이전",
+    "version" : "버전",
+    "other_tool" : "기타 도구",
+    "admins_tool" : "운영자용 도구",
+    "users_tool" : "도구",
+    "save" : "저장",
+    "raw" : "Raw",
+    "old" : "Old",
+    "users_menu" : "메뉴",
+    "sign_up" : "회원가입",
+    "sign_in" : "로그인",
+    "sign_out" : "로그아웃",
+    "error" : "오류",
+    "period" : "기간",
+    "ban" : "차단",
+    "name" : "아이디",
+    "password" : "비밀번호",
+    "start" : "시작",
+    "limitless" : "Limitless",
+    "delete" : "삭제",
+    "revert" : "되돌리기",
+    
+    "second" : "차단 기간(초)",
+
+    "recent_change" : "최근 바뀜",
+    "recent_ban" : "차단 내역",
+    
+    "re_not_same_e" : "비밀번호 재입력 불일치",
+    "id_match_e" : "아이디는 영어와 숫자의 조합으로만 가능합니다.",
+    "id_exist_e" : "이미 이 아이디는 누군가가 사용하고 있습니다.",
+    "id_not_exist_e" : "이 아이디를 사용하는 사람이 없습니다.",
+    "pw_not_same_e" : "비밀번호를 다시 입력하세요.",
+    "acl_e" : "접근 권한 없음."
+}
