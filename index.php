@@ -9,267 +9,11 @@
     $conn = new PDO('sqlite:data.db');
     session_start();
 
-    function xss_protect($data) {
-        $data = preg_replace("/</", "&lt;", $data);
-        $data = preg_replace("/>/", "&gt;", $data);
-
-        return $data;
-    }
-
-    function load_id() {
-        if($_SESSION["id"]) {
-            $id = $_SESSION["id"];
-        } else {
-            $id = $_SERVER['REMOTE_ADDR'];
-        }
-
-        return $id;
-    }
-
-    function load_pass($data = "admin") {
-        $pass = FALSE;
-
-        if(!load_ban_off(load_id())) {
-            $acl = load_acl();
-            switch($data) {
-                case "owner":
-                    if($acl === "owner") {
-                        $pass = TRUE;
-                    }
-                    
-                    break;
-                case "admin":
-                    $check = ["owner", "admin"];
-                    if(in_array($acl, $check)) {
-                        $pass = TRUE;
-                    }
-
-                    break;
-                case "registered":
-                    if($acl !== "ip") {
-                        $pass = TRUE;
-                    }
-                    
-                    break;
-            }
-        }
-        
-        return $pass;
-    }
-
-    function load_ban_off($name) {
-        $conn = new PDO('sqlite:data.db');
-        
-        $sql = $conn -> prepare('select start, time from ban where name = ? order by start desc limit 1');
-        $sql -> execute([$name]);
-        $data = $sql -> fetchAll();
-        if($data) {
-            if($data[0]['time'] === '') {
-                $ban_off = TRUE;
-            } else {
-                if((int)$data[0]['start'] + (int)$data[0]['time'] > (int)time()) {
-                    $ban_off = TRUE;
-                } else {
-                    $ban_off = FALSE;
-                }
-            }
-        } else {
-            $ban_off = FALSE;
-        }
-
-        return $ban_off;
-    }
-    
-    function ip_or_id($data) {
-        if(preg_match("/\.|:/", $data)) {
-            return TRUE;
-        } else {
-            return FALSE;
-        }
-    }
-
-    function load_acl() {
-        $conn = new PDO('sqlite:data.db');
-
-        if($_SESSION["id"]) {
-            $sql = $conn -> prepare('select data from user_set where title = "acl" and id = ?');
-            $sql -> execute([$_SESSION["id"]]);
-            $data = $sql -> fetchAll();
-            if($data) {
-                $acl = $data[0]["data"];
-            } else {
-                $acl = "registered";
-            }
-
-            return $acl;
-        } else {
-            return "ip";
-        }
-    }
-
-    function load_render($title, $data) {
-        $conn = new PDO('sqlite:data.db');
-
-        $data = preg_replace("/\r\n/", "\n", $data);
-        $data = "\n".$data."\n";
-
-        $data = xss_protect($data);
-
-        if($setting['grammar'] === "namumark") {
-            $data = preg_replace("/'''((?:(?!''').)+)'''/", "<b>$1</b>", $data);
-            $data = preg_replace("/''((?:(?!'').)+)''/", "<i>$1</i>", $data);
-        } else {
-            $data = preg_replace("/\*\*((?:(?!\*\*).)+)\*\*/", "<b>$1</b>", $data);
-            $data = preg_replace("/\*((?:(?!\*).)+)\*/", "<i>$1</i>", $data);
-
-            $data = preg_replace("/__((?:(?!__).)+)__/", "<b>$1</b>", $data);
-            $data = preg_replace("/_((?:(?!_).)+)_/", "<i>$1</i>", $data);
-
-            $data = preg_replace("/~~((?:(?!~~).)+)~~/", "<s>$1</s>", $data);
-
-            $data = preg_replace("/`((?:(?!`).)+)`/", "<pre>$1</pre>", $data);
-
-            $data = preg_replace_callback("/\n(#{1,6}) ?([^\n]+)/",
-                function($matches) {
-                    return "<h".mb_strlen($matches[1], 'UTF-8').">".$matches[2]."</h".mb_strlen($matches[1], 'UTF-8').">";
-                }
-            , $data);
-
-            $data = preg_replace_callback("/\[([^\]]*)\]\(([^)]*)\)/",
-                function($matches) {
-                    $conn = new PDO('sqlite:data.db');
-                    
-                    if($matches[1] === "" && $matches[2] === "") {
-                        return "";
-                    } else {
-                        if($matches[2] === "") {
-                            $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                            $sql -> execute([$matches[2]]);
-                            $data = $sql -> fetchAll();
-                            if($data && $data[0]["data"] !== "") {
-                                $href_class = "";
-                            } else {
-                                $href_class = "class=\"no_link\"";
-                            }
-
-                            return "<a ".$href_class." href=\"?action=w&title=".urlencode($matches[1])."\">".$matches[1]."</a>";
-                        } else {
-                            if($matches[1] === "") {
-                                $out_link = $matches[2];
-                            } else {
-                                $out_link = $matches[1];
-                            }
-
-                            if(preg_match("/^https?:\/\//i", $matches[2])) {
-                                return "<a class=\"out_link\" href=\"".$matches[2]."\">".$out_link."</a>";
-                            } else {
-                                $sql = $conn -> prepare('select data from history where title = ? order by date desc limit 1');
-                                $sql -> execute([$matches[2]]);
-                                $data = $sql -> fetchAll();
-                                if($data && $data[0]["data"] !== "") {
-                                    $href_class = "";
-                                } else {
-                                    $href_class = "class=\"no_link\"";
-                                }
-                                
-                                return "<a ".$href_class." href=\"?action=w&title=".urlencode($matches[2])."\">".$out_link."</a>";
-                            }
-                        }
-                    }
-                }
-            , $data);
-
-            $data = preg_replace_callback("/((?:&gt;([^\n]+)\n)+)/",
-                function($matches) {
-                    $return = preg_replace("/\n&gt;/", "\n", $matches[1]);
-                    $return = preg_replace("/^&gt;/", "", $return);
-
-                    return "<blockquote>".preg_replace("/\n/", "<br>", $return)."</blockquote>";
-                }
-            , $data);
-
-            $data = preg_replace_callback("/(\n{2,})/",
-                function($matches) {
-                    return preg_replace("/\n/", "<br>", $matches[1]);
-                }
-            , $data);
-        }
-
-        return $data;
-    }
-    
-    function redirect($url = '') {
-        return '<meta http-equiv="refresh" content="0; url='.$_SERVER['PHP_SELF'].$url.'">';
-    }
-
-    function file_fix($url) {
-        return preg_replace('/\/index.php$/' , '', $_SERVER['PHP_SELF']).$url;
-    }
-
-    function load_lang($data) {
-        global $lang_file;
-
-        if(preg_match("/^revert ([0-9]+)$/", $data, $matches)) {
-            return load_lang("revert")." ".$matches[1];
-        }
-
-        if($lang_file["en-US"][$data]) {
-            return $lang_file["en-US"][$data];
-        } else {
-            return $data.' (M)';
-        }
-    }
-    
-    function load_skin($head = '', $body = '', $tool = [], $other = []) {
-        $next = "";
-
-        if($other["list"]) {
-            if(($other["list"][0] !== 0 && $other["list"][0]) || $other["list"][1]) {
-                $now_url = preg_replace("/&count=[0-9]*/i", "", $_SERVER['REQUEST_URI']);
-
-                if($other["list"][0] !== 0 && $other["list"][0]) {
-                    $next = $next."<br><br><a href=\"".$now_url."&count=".(string)((int)$other["list"][0] - 1)."\">Before</a> ";
-                }
-
-                if($other["list"][1]) {
-                    if($next === "") {
-                        $next = $next."<br><br><a href=\"".$now_url."&count=".(string)((int)$other["list"][0] + 1)."\">Next</a>";
-                    } else {
-                        $next = $next."| <a href=\"".$now_url."&count=".(string)((int)$other["list"][0] + 1)."\">Next</a>";
-                    }
-                }
-            }
-        }
-
-        $main_skin = skin_render($head, $body.$next, $tool, $other);
-        
-        $main_skin = preg_replace("/\n +</", "\n<", $main_skin);
-        $main_skin = preg_replace("/>(\n| )+</", "> <", $main_skin);
-
-        return $main_skin;
-    }
-    
-    function load_error($data = "Missing error", $menu = []) {
-        return load_skin("", $data, $menu, ["title" => load_lang("error")]);
-    }
-
-    function change_alphabet($data) {        
-        return preg_replace_callback("/^([a-z]+)/",
-            function($matches) {
-                if(in_array($matches[1], ["ip"])) {
-                    return strtoupper($matches[1]);
-                } else {
-                    return ucfirst($matches[1]);
-                }
-            }
-        , $data);
-    }
-    
     $lang_file = [];
-    
     $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), TRUE);
+    $lang_file[$setting['language']] = json_decode(file_get_contents('./language/'.$setting['language'].'.json'), TRUE);
 
-    $version = "v0.0.06";
+    $version = "v0.0.07";
     $r_version = 5;
 
     $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
@@ -334,6 +78,185 @@
             $sql = $conn -> prepare('update setting set data = "0005" where title = "version"');
             $sql -> execute([]);
         }
+    }
+
+    function xss_protect($data) {
+        $data = preg_replace("/</", "&lt;", $data);
+        $data = preg_replace("/>/", "&gt;", $data);
+
+        return $data;
+    }
+
+    function load_id() {
+        if($_SESSION["id"]) {
+            $id = $_SESSION["id"];
+        } else {
+            $id = $_SERVER['REMOTE_ADDR'];
+        }
+
+        return $id;
+    }
+
+    function load_pass($data = "admin") {
+        $pass = FALSE;
+
+        if(!load_ban_off(load_id())) {
+            $acl = load_acl();
+            switch($data) {
+                case "owner":
+                    if($acl === "owner") {
+                        $pass = TRUE;
+                    }
+                    
+                    break;
+                case "admin":
+                    $check = ["owner", "admin"];
+                    if(in_array($acl, $check)) {
+                        $pass = TRUE;
+                    }
+
+                    break;
+                case "registered":
+                    if($acl !== "ip") {
+                        $pass = TRUE;
+                    }
+                    
+                    break;
+            }
+        }
+        
+        return $pass;
+    }
+
+    function load_ban_off($name) {
+        global $conn;
+        
+        $sql = $conn -> prepare('select start, time from ban where name = ? order by start desc limit 1');
+        $sql -> execute([$name]);
+        $data = $sql -> fetchAll();
+        if($data) {
+            if($data[0]['time'] === '') {
+                $ban_off = TRUE;
+            } else {
+                if((int)$data[0]['start'] + (int)$data[0]['time'] > (int)time()) {
+                    $ban_off = TRUE;
+                } else {
+                    $ban_off = FALSE;
+                }
+            }
+        } else {
+            $ban_off = FALSE;
+        }
+
+        return $ban_off;
+    }
+    
+    function ip_or_id($data) {
+        if(preg_match("/\.|:/", $data)) {
+            return TRUE;
+        } else {
+            return FALSE;
+        }
+    }
+
+    function load_acl() {
+        global $conn;
+
+        if($_SESSION["id"]) {
+            $sql = $conn -> prepare('select data from user_set where title = "acl" and id = ?');
+            $sql -> execute([$_SESSION["id"]]);
+            $data = $sql -> fetchAll();
+            if($data) {
+                $acl = $data[0]["data"];
+            } else {
+                $acl = "registered";
+            }
+
+            return $acl;
+        } else {
+            return "ip";
+        }
+    }
+
+    function load_render($title, $data) {
+        global $conn;
+        global $setting;
+
+        return '<div id="render_contect">'.$data.'</div>';
+    }
+    
+    function redirect($url = '') {
+        return '<meta http-equiv="refresh" content="0; url='.$_SERVER['PHP_SELF'].$url.'">';
+    }
+
+    function file_fix($url) {
+        return preg_replace('/\/index.php$/' , '', $_SERVER['PHP_SELF']).$url;
+    }
+
+    function load_lang($data) {
+        global $lang_file;
+        global $setting;
+
+        if(preg_match("/^revert ([0-9]+)$/", $data, $matches)) {
+            return load_lang("revert")." r".$matches[1];
+        }
+
+        if($lang_file[$setting['language']][$data]) {
+            return $lang_file[$setting['language']][$data];
+        } else {
+            if($lang_file['en-US'][$data]) {
+                return $lang_file['en-US'][$data];
+            } else {
+                return $data.' (M)';
+            }
+        }
+    }
+    
+    function load_skin($head = '', $body = '', $tool = [], $other = []) {
+        $next = "";
+
+        if($other["list"]) {
+            if(($other["list"][0] !== 0 && $other["list"][0]) || $other["list"][1]) {
+                $now_url = preg_replace("/&count=[0-9]*/i", "", $_SERVER['REQUEST_URI']);
+
+                if($other["list"][0] !== 0 && $other["list"][0]) {
+                    $next = $next."<br><br><a href=\"".$now_url."&count=".(string)((int)$other["list"][0] - 1)."\">Before</a> ";
+                }
+
+                if($other["list"][1]) {
+                    if($next === "") {
+                        $next = $next."<br><br><a href=\"".$now_url."&count=".(string)((int)$other["list"][0] + 1)."\">Next</a>";
+                    } else {
+                        $next = $next."| <a href=\"".$now_url."&count=".(string)((int)$other["list"][0] + 1)."\">Next</a>";
+                    }
+                }
+            }
+        }
+
+        $head = $head."<link rel=\"stylesheet\" href=\"".file_fix("/skin/main_css/css/main.css?ver=1")."\">";
+
+        $main_skin = skin_render($head, $body.$next, $tool, $other);
+        
+        $main_skin = preg_replace("/\n +</", "\n<", $main_skin);
+        $main_skin = preg_replace("/>(\n| )+</", "> <", $main_skin);
+
+        return $main_skin;
+    }
+    
+    function load_error($data = "Missing error", $menu = []) {
+        return load_skin("", $data, $menu, ["title" => load_lang("error")]);
+    }
+
+    function change_alphabet($data) {        
+        return preg_replace_callback("/^([a-z]+)/",
+            function($matches) {
+                if(in_array($matches[1], ["ip"])) {
+                    return strtoupper($matches[1]);
+                } else {
+                    return ucfirst($matches[1]);
+                }
+            }
+        , $data);
     }
 
     switch($_GET['action']) {
