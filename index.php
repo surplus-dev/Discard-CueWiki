@@ -270,7 +270,7 @@
                 if($_GET['num']) {
                     $sql = $conn -> prepare('select data from history where title = ? and num = ? order by date desc limit 1');
                     $sql -> execute([$_GET['title'], $_GET['num']]);
-                    $title = ["title" => $_GET['title'], "sub" => $_GET['num']];
+                    $title = ["title" => $_GET['title'], "sub" => "r".$_GET['num']];
                     $menu = [
                         [load_lang("return"), '?action=history&title='.urlencode($_GET['title'])]
                     ];
@@ -292,7 +292,7 @@
                     } else {
                         $get_data = "<pre>".$data[0]["data"]."</pre>";
                         if($title["sub"]) {
-                            $title = ["title" => $_GET['title'], "sub" => $_GET['num']." | ".load_lang("raw")];
+                            $title = ["title" => $_GET['title'], "sub" => "r".$_GET['num']." | ".load_lang("raw")];
                         } else {
                             $title = ["title" => $_GET['title'], "sub" => load_lang("raw")];
                             $menu = [
@@ -557,7 +557,7 @@
                     }
 
                     $html_data = $html_data."
-                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a> | <a href=\"?action=revert&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('revert')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".load_lang($type)." | ".$in_data["why"]."
+                        <a href=\"?action=w&num=".$in_data["num"]."&title=".$_GET['title']."\">r".$in_data["num"]."</a> (<a href=\"?action=raw&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('raw')."</a> | <a href=\"?action=revert&num=".$in_data["num"]."&title=".$_GET['title']."\">".load_lang('revert')."</a>) | ".$in_data["date"]." | ".$in_data["who"]." | ".load_lang($type)." | ".$in_data["why"]."
                         <br>
                     ";
                 }
@@ -588,7 +588,7 @@
                 }
 
                 $html_data = $html_data."
-                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> | <a href=\"?action=history&title=".urlencode($in_data["title"])."\">".$in_data["num"]."</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".load_lang($type)." | ".$in_data["why"]."
+                    <a href=\"?action=w&title=".urlencode($in_data["title"])."\">".$in_data["title"]."</a> <a href=\"?action=history&title=".urlencode($in_data["title"])."\">(r".$in_data["num"].")</a> | ".$in_data["date"]." | ".$in_data["who"]." | ".load_lang($type)." | ".$in_data["why"]."
                     <br>
                 ";
             }

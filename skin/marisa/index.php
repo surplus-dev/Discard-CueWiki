@@ -27,7 +27,7 @@
 
             if($other["sub"] !== "") {
                 $title1 = $title1." (".$other["sub"].")";
-                $title2 = $title2." (".$other["sub"].")";
+                $title2 = $title2." <sub>(".$other["sub"].")</sub>";
             }
         }
 
