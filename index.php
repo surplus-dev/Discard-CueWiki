@@ -445,7 +445,7 @@
 
                         echo load_skin("", "
                             <form method=\"post\">
-                                <textarea class=\"edit_form\" name=\"data\">".$get_data."</textarea>
+                                <textarea rows=\"25\" class=\"edit_form\" name=\"data\">".$get_data."</textarea>
                                 <br>
                                 <br>
                                 <input name=\"why\"></input>
