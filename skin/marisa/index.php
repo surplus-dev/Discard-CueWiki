@@ -56,14 +56,14 @@
                                         <div id=\"top_tool_cel\">
                                             <a href=\"?action=r_change\">
                                                 <span class=\"iconify\" data-icon=\"ic:baseline-autorenew\" data-inline=\"true\"></span>
-                                                ".load_lang("recent_change")."
+                                                <span class=\"not_mobile\">".load_lang("recent_change")."</span>
                                             </a>
                                         </div>
                                          
                                         <div id=\"top_tool_cel\">
                                             <a href=\"?action=o_tool\">
                                                 <span class=\"iconify\" data-icon=\"ic:baseline-build\" data-inline=\"true\"></span>
-                                                ".load_lang("other_tool")."
+                                                <span class=\"not_mobile\">".load_lang("other_tool")."</span>
                                             </a>
                                         </div>
                                          
