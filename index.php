@@ -13,7 +13,7 @@
     $lang_file["en-US"] = json_decode(file_get_contents('./language/en-US.json'), TRUE);
     $lang_file[$setting['language']] = json_decode(file_get_contents('./language/'.$setting['language'].'.json'), TRUE);
 
-    $version = "v0.0.07";
+    $version = "v0.0.08";
     $r_version = 5;
 
     $sql = $conn -> prepare('create table if not exists setting(title text, data text)');
@@ -182,7 +182,7 @@
         global $conn;
         global $setting;
 
-        return '<div id="render_contect">'.$data.'</div>';
+        return '<div id="render_contect">'.$data.'</div><script>render_namumark("render_contect")</script>';
     }
     
     function redirect($url = '') {
@@ -234,6 +234,7 @@
         }
 
         $head = $head."<link rel=\"stylesheet\" href=\"".file_fix("/skin/main_css/css/main.css?ver=1")."\">";
+        $head = $head."<script src=\"".file_fix("/skin/main_css/js/render_namumark.js?ver=1")."\"></script>";
 
         $main_skin = skin_render($head, $body.$next, $tool, $other);
         

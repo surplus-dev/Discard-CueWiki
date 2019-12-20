@@ -37,12 +37,12 @@
                 <head>
                     <meta charset=\"utf-8\">
                     <title>".$title1."</title>
+                    ".$head."
                     <link rel=\"stylesheet\" href=\"".file_fix("/skin/marisa/css/main.css?ver=1")."\">
                     <script src=\"".file_fix("/skin/marisa/js/skin_set.js?ver=1")."\"></script>
                     <script src=\"".file_fix("/skin/marisa/js/main.js?ver=1")."\"></script>
                     <script>window.onload = function () { skin_set(); }</script>
                     <script src=\"https://code.iconify.design/1/1.0.3/iconify.min.js\"></script>
-                    ".$head."
                 </head>
                 <body>
                     <div id=\"background\">
@@ -113,7 +113,7 @@
                     </div>
                     <div id=\"bottom\">
                         <div id=\"bottom_main\">
-                            <a href=\"https://github.com/Make-openNAMU/PHP-CueWiki\"><i class=\"fab fa-github\"></i> CueWiki</a>
+                            <a href=\"https://github.com/2du/PHP-CueWiki\"><i class=\"fab fa-github\"></i> CueWiki</a>
                         </div>
                     </div>
                     <div id=\"nav_bar\">
